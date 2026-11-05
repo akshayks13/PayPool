@@ -1,0 +1,1 @@
+"""Structured commercial offer lifecycle."""
