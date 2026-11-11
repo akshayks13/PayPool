@@ -466,6 +466,11 @@ def discover(data: Discovery, user=Depends(current_user), store=Depends(store_fo
     No request, quote approval, inventory reservation or payment is created.
     """
     require_role(user, "RETAILER")
+    from app.platform import conversations
+
+    if data.conversation_version is not None:
+        with store.transaction() as tx:
+            conversations.check(tx, user, data.conversation_version)
     from app.modules.negotiation.llm import (
         GeminiNegotiationNarrator,
         LLMUnavailableError,
@@ -492,6 +497,7 @@ def discover(data: Discovery, user=Depends(current_user), store=Depends(store_fo
             "candidates": [],
             "messages": [],
             "engine": engine,
+            "conversation": conversations.save(store, user, data, intent, engine),
         }
     import re
 
@@ -515,6 +521,14 @@ def discover(data: Discovery, user=Depends(current_user), store=Depends(store_fo
             and p["attributes"]["variety"].casefold() in data.message.casefold()
         }
         for item in catalog:
+            supplier = tx.get("users", item["seller_id"]) or {}
+            if (
+                not item.get("active", True)
+                or not supplier.get("active", True)
+                or not supplier.get("verified", False)
+                or "SELLER" not in supplier.get("roles", [])
+            ):
+                continue
             if (
                 requested_varieties
                 and item.get("attributes", {}).get("variety") not in requested_varieties
@@ -643,6 +657,7 @@ def discover(data: Discovery, user=Depends(current_user), store=Depends(store_fo
         "engine": engine,
         "narration_error": narration_error,
         "agent_trace": agent_trace,
+        "conversation": conversations.save(store, user, data, intent, engine),
     }
 
 

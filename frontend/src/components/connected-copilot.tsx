@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Bot, Send, ShieldCheck } from "lucide-react";
-import { post } from "@/lib/http";
+import { post, request as read } from "@/lib/http";
 import { money, type Product, type Workspace } from "@/lib/commerce";
 import type { ProcurementIntent } from "@/lib/api";
 import { BuyingForm } from "@/components/commerce-workspace";
 
 type Discovery = {
+  conversation?: Conversation | null;
   intent: ProcurementIntent;
   engine: string;
   agent_trace?: {
@@ -32,6 +33,14 @@ type Discovery = {
     next_tier: { minimum_quantity: number; unit_price_minor: number } | null;
   }[];
 };
+type Conversation = {
+  version: number;
+  message: string;
+  intent: ProcurementIntent | null;
+  engine: string | null;
+  updated_at: string | null;
+  history: { message: string; questions: string[]; at: string }[];
+};
 type Props = {
   data: Workspace;
   act: (path: string, data?: unknown) => Promise<unknown>;
@@ -45,6 +54,43 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
   const [selected, setSelected] = useState<Product | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    let active = true;
+    read<Conversation>("/api/v1/procurement/conversation")
+      .then((saved) => {
+        if (!active) return;
+        setConversation(saved);
+        setMessage(saved.message);
+        if (saved.intent) {
+          setCurrency(saved.intent.currency);
+          setResult({
+            intent: saved.intent,
+            engine: saved.engine ?? "deterministic",
+            candidates: [],
+            messages: [],
+          });
+          setRestored(true);
+        }
+      })
+      .catch((e) => {
+        if (active)
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Could not restore the buying task",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [data.user.id]);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -60,6 +106,10 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
       );
       return;
     }
+    await compare(request);
+  }
+  async function compare(request: string) {
+    if (!conversation) return;
     setThinking(true);
     setError("");
     setSubmitted(false);
@@ -67,14 +117,42 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
     try {
       const discovery = await post<Discovery>("/api/v1/procurement/discover", {
         message: request,
-        currency: "USD",
+        currency,
+        conversation_version: conversation.version,
       });
       setResult(discovery);
       setMessage(request);
       setDraft("");
+      setConversation(discovery.conversation ?? null);
+      setRestored(false);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Could not interpret the request",
+      );
+    } finally {
+      setThinking(false);
+    }
+  }
+  async function reset(example = "") {
+    if (!conversation) return;
+    setThinking(true);
+    try {
+      const saved = await post<Conversation>(
+        "/api/v1/procurement/conversation/reset",
+        { version: conversation.version },
+      );
+      setConversation(saved);
+      setDraft(example);
+      if (example) setCurrency("USD");
+      setResult(null);
+      setMessage("");
+      setSelected(null);
+      setSubmitted(false);
+      setRestored(false);
+      setError("");
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not reset the saved task",
       );
     } finally {
       setThinking(false);
@@ -93,6 +171,38 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
           </div>
         </header>
         <div className="min-h-60 space-y-4 bg-slate-50 p-5">
+          {loading && <p role="status">Restoring your saved buying task…</p>}
+          {restored && (
+            <div className="rounded-xl border bg-blue-50 p-4 text-sm text-blue-900">
+              <p>
+                Saved requirements restored. Prices and availability must be
+                checked again before creating a request.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary mt-3"
+                disabled={thinking}
+                onClick={() => compare(message)}
+              >
+                Refresh saved comparison
+              </button>
+            </div>
+          )}
+          {!!conversation?.history.length && (
+            <details className="rounded-xl border bg-white p-4 text-sm">
+              <summary>Saved conversation history</summary>
+              {conversation.history.map((turn, i) => (
+                <div className="mt-3 border-t pt-3" key={`${turn.at}-${i}`}>
+                  <p className="whitespace-pre-wrap">{turn.message}</p>
+                  {turn.questions.map((q) => (
+                    <p className="mt-1 text-amber-900" key={q}>
+                      PayPool asked: {q}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </details>
+          )}
           <p className="max-w-xl rounded-xl border bg-white p-4 text-sm leading-7">
             Tell me the product, quantity, delivery date and the most you can
             pay including delivery. I’ll compare the supplier catalog and shared
@@ -173,6 +283,7 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
                 </div>
               ))}
               {!result.candidates.length &&
+                !restored &&
                 !result.intent.clarification_questions.length && (
                   <p className="rounded-xl bg-white p-4 text-sm">
                     No eligible catalog match in your service area. Check the
@@ -183,19 +294,26 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
           )}
         </div>
         <form onSubmit={submit} className="border-t p-4">
+          <label className="mb-3 flex items-center gap-3 text-sm font-semibold">
+            Buying currency
+            <select
+              className="field !mt-0 !w-auto"
+              aria-label="Buying currency"
+              value={currency}
+              disabled={thinking || loading}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {["USD", "EUR", "GBP", "INR"].map((code) => (
+                <option key={code}>{code}</option>
+              ))}
+            </select>
+          </label>
           {(message || result) && (
             <button
               type="button"
               className="mb-3 mr-3 text-sm font-semibold text-blue-700"
-              disabled={thinking}
-              onClick={() => {
-                setDraft("");
-                setResult(null);
-                setMessage("");
-                setSelected(null);
-                setSubmitted(false);
-                setError("");
-              }}
+              disabled={thinking || loading || !conversation}
+              onClick={() => reset()}
             >
               Start a new request
             </button>
@@ -203,17 +321,12 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
           <button
             type="button"
             className="mb-3 rounded-full bg-blue-50 px-3 py-2 text-left text-xs text-blue-800"
-            disabled={thinking}
-            onClick={() => {
-              setResult(null);
-              setMessage("");
-              setSelected(null);
-              setSubmitted(false);
-              setError("");
-              setDraft(
+            disabled={thinking || loading || !conversation}
+            onClick={() =>
+              reset(
                 `I need 30 kg Sona Masoori rice by ${tomorrow}, landed price below USD 1.70/kg.`,
-              );
-            }}
+              )
+            }
           >
             Try a shared rice order within $1.70/kg
           </button>
@@ -221,7 +334,7 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             <textarea
               aria-label="Buying request"
               value={draft}
-              disabled={thinking}
+              disabled={thinking || loading || !conversation}
               onChange={(e) => setDraft(e.target.value)}
               className="field min-h-20"
               placeholder="I need 30 kg rice by YYYY-MM-DD, landed price below USD 1.70/kg…"
@@ -229,7 +342,7 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             />
             <button
               className="btn-primary mt-1"
-              disabled={thinking || !draft.trim()}
+              disabled={thinking || loading || !conversation || !draft.trim()}
               aria-label="Compare supplier offers"
             >
               <Send size={18} />
@@ -239,8 +352,8 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             {result?.intent.clarification_questions.length
               ? "Your reply will be added to the request above. Start a new request to replace it. "
               : ""}
-            USD demo catalog. Other currencies require matching supplier
-            products.
+            Demo products use USD. Your selected currency must match the
+            supplier's catalog. INR payments are simulation only.
           </p>
         </form>
       </section>

@@ -10,8 +10,9 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 | --- | --- |
 | Identity | Hashed passwords, persistent sessions, HttpOnly cookies, CSRF/origin checks, account lockout, server roles/ownership, expiry handling and no-role onboarding; optional PayPal authorization-code/userinfo login |
 | Catalog | Product metadata/variants, base and volume tiers, negotiation floors, create/edit/archive, CSV/XLSX review/commit, stock movements with expected-balance checks |
-| Discovery | SQL-scoped serviceable catalog and category filters, protected specification/pack matching, optional Elastic lexical/vector retrieval with explicit keyword fallback; optional Gemini extraction/narration |
-| Negotiation | Persisted two-party offers, counters, expiry/version checks, actor validation, idempotent initial proposals, revision history, seller floors and buyer ceilings; accepted terms enter final clearing |
+| Discovery | SQL-scoped serviceable catalog with category/brand/unit/supplier/currency/stock facets and server pagination, protected specification/pack matching, optional Elastic lexical/vector retrieval with explicit keyword fallback; optional Gemini extraction/narration |
+| Saved buying task | Buyer-owned SQL conversation with bounded history, optimistic version checks across devices, explicit reset and fresh comparison before restored estimates can be used; no saved price or payment authority |
+| Negotiation | Sortable/filterable commercial comparison and revision history, persisted two-party offers, counters/rejection, expiry/version checks, actor validation, idempotent initial proposals, revision history, seller floors and buyer ceilings; accepted terms enter final clearing |
 | Recurrence | Revocable standing buying instructions, per-date occurrence deduplication, specification revalidation, review-required failures; never automatic purchase consent |
 | Delivery areas | Leaflet vertex drawing/dragging plus coordinate editor, validated polygons, weekdays/timezone/windows, cutoffs, automatic clearing policy and buyer-confirmation policy |
 | Clearing | Transactional lock/optimization states, complete integer quantity search within the explicit candidate cap, stock/tier/capacity/zone checks, configurable normalized weight/volume freight, exact-cent rounding and independent validation |
@@ -24,18 +25,19 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 | Webhooks | Signature verification outside the event loop, durable normalized event records, deduplication, capture/refund reference recovery and provider re-reads; pending events survive provider outages |
 | Receipts | Current reconciliation JSON, persisted worker projections and printable HTML; proof/confirmation/payment match, snapshotted terms, masked print references, refund state and simulation label |
 | Background jobs | Transactional outbox, replay-safe projections, retries/dead letters, worker heartbeat, recurring/cutoff/expiry scheduler, capture/reconciliation recovery; standalone SQL worker or Redis/Celery executor |
-| Operations | Account-scoped notifications, audit, seller verification and role grants/removal with self-change prevention, searchable paginated recent audit history, payment activity ledger, queue health and controlled retries |
+| Operations | Account-scoped notifications, audit, seller verification and role grants/removal with self-change prevention, searchable server-paginated complete accessible audit history, payment activity ledger, queue health and controlled retries |
 | External agents | Buyer-scoped revocable credentials, upstream-pinned ACP 2026-04-17 create/retrieve/update/complete/cancel contract, exact approved-quote binding, idempotency and expiry; safe portal continuation without delegated payment access |
 | Feed preparation | Merchant-reviewed JSONL using factual product details, base catalog price and current availability; reports missing required content, never publishes automatically or enables native checkout |
 | Persistence | SQLite or PostgreSQL SQLAlchemy domain records, cross-worker transaction serialization, Alembic baseline preserving existing records; optional indexed PostGIS `ST_Covers` |
 
 ## Checks performed
 
-- 70 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
+- 77 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
 - Both optional checks were run successfully against local PostgreSQL 14 and Redis/Celery, including after the framework security updates: complete fulfillment/reconciliation and actual broker-to-worker consumption.
-- Seven browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, map/recurrence/buyer-confirmation/worker controls, multi-turn clarification/reset, and confirmed role removal/audit search/pagination.
+- Nine browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, map/recurrence/buyer-confirmation/worker controls, multi-turn clarification/reset, confirmed role removal/audit search/pagination, catalog facets, and commercial comparison/revision/rejection. Saved-task tests cover reload, refreshed estimates and reset.
 - A real-Gemini Chromium check passed: written quantity extraction, canonical unit matching, two eligible catalog offers, AI explanation and explicit buying confirmation. Unit normalization regression tests preserve quantities and the original price basis.
 - TypeScript checks and production compilation pass. npm reported zero known frontend vulnerabilities; pip-audit checked 98 installed Python packages with zero known vulnerabilities after the framework/tooling security updates.
+- A Postman collection passed 32 requests and 43 assertions through the full simulator purchase/fulfillment/receipt workflow. `make postman-demo` runs it against its own disposable API/database.
 - Alembic preservation, Compose configuration and development-script syntax are checked. Container execution and actual PostGIS extension queries have not been exercised; the local PostgreSQL installation has no PostGIS extension.
 
 ## Explicit boundaries
@@ -44,7 +46,7 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 - Seller prices include applicable tax. Separate jurisdictional tax calculation, platform fees, partial-delivery capture and automated chargeback adjudication are not claimed. Exceptions support void/close, redelivery and merchant refunds, with explicit stock movements.
 - Domain records use a generic SQL JSON table with immutable IDs and snapshots. A normalized enterprise schema, large-scale load certification, managed backups and deployment operations remain rollout work.
 - In-process buyer/supplier policies and optional Gemini assistance are implemented. External autonomous runtime deployment and unsupported sponsor integrations are not fabricated.
-- **Gemini extraction and narration were verified with real provider calls on November 11, 2026.** The supplied key is kept in an ignored private local environment file. Real PayPal sandbox approval/capture/refund/webhooks and Identity remain unverified: the team requested simulated payments while registration is unavailable. Gemini embeddings are still unverified. Payment adapters are covered by mocks and fail closed on uncertain outcomes.
+- **Gemini extraction and narration were verified with real provider calls on November 11, 2026.** The supplied key is kept in an ignored private local environment file. Real PayPal sandbox approval/capture/refund/webhooks and Identity remain unverified: the team requested simulated payments while registration is unavailable. The actual Gemini embedding adapter also passed with 768 dimensions; Elasticsearch-backed indexing/retrieval remains unverified without that service. Payment adapters are covered by mocks and fail closed on uncertain outcomes.
 - **Delegated/native agent payments, Vault, live payments and partner multi-merchant onboarding remain disabled.** ACP completion returns a validated continuation state; a purchase order is never accepted as proof of payment. This is a deliberate access boundary, not a hidden mock.
 - Optional Elastic/PostGIS/Docker paths need their configured services. The no-key SQLite application, SQL worker, PostgreSQL records and Redis/Celery paths are runnable and tested as noted above.
 

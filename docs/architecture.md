@@ -23,6 +23,7 @@ flowchart TD
 
 - `platform/models.py` validates requests and merchant configuration; `service.py` owns authoritative procurement and fulfillment rules.
 - `commercial.py` owns two-party offers, immutable revision history and seller/buyer commercial authority.
+- `conversations.py` stores the buyer's current task and bounded clarification history. Optimistic versions reject stale device/model responses; restored tasks require fresh discovery rather than reusing stored executable prices.
 - `clearing.py` searches permitted whole quantities, evaluates earned SKU tiers and physical constraints, allocates every freight cent and validates the chosen manifest independently.
 - `schedules.py` owns cutoff calculations; `worker.py` creates recurring requests and processes expiry, event projections and recovery.
 - `payment_execution.py` persists provider operation intent, releases SQL locks, invokes PayPal and commits or reconciles the result. Conflicting operations are rejected. Delivery evidence commits before capture is attempted.
@@ -31,6 +32,7 @@ flowchart TD
 - `acp.py` validates the pinned upstream protocol and buyer-approved quote. It provides a portal continuation while delegated processing is disabled.
 - `feed.py` prepares reviewed factual discovery rows. `search.py` provides optional Elastic/Gemini retrieval; SQL owns current eligibility, stock, prices and consent.
 - `features_router.py` exposes offers, recurrence, fleet, inventory, manifestations of delivery evidence, feed preparation and operations. `router.py` exposes the core account/procurement/payment workflow.
+- Catalog facets and audit history use server pagination. Audit SQL filters authorization before search/count/pagination; users cannot enumerate another buyer's activity through totals or search.
 
 ## Authority and money
 

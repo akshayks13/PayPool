@@ -20,11 +20,19 @@ def embedding(text, task):
     if not key:
         raise SearchUnavailable("Embedding credentials are not configured")
     try:
-        result = genai.Client(api_key=key).models.embed_content(
-            model=os.getenv("PAYPOOL_EMBEDDING_MODEL", "gemini-embedding-001"),
-            contents=text,
-            config=types.EmbedContentConfig(task_type=task, output_dimensionality=768),
-        )
+        with genai.Client(
+            api_key=key,
+            http_options=types.HttpOptions(
+                timeout=int(os.getenv("PAYPOOL_LLM_TIMEOUT_MS", "20000"))
+            ),
+        ) as client:
+            result = client.models.embed_content(
+                model=os.getenv("PAYPOOL_EMBEDDING_MODEL", "gemini-embedding-001"),
+                contents=text,
+                config=types.EmbedContentConfig(
+                    task_type=task, output_dimensionality=768
+                ),
+            )
         values = result.embeddings[0].values
         if len(values) != 768:
             raise SearchUnavailable(

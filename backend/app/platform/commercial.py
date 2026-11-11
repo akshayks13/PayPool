@@ -17,9 +17,20 @@ def access(user, offer):
         raise HTTPException(403, "This negotiation belongs to another business")
 
 
+def require_party(user, buying):
+    if not (
+        (user["id"] == buying["buyer_id"] and "RETAILER" in user["roles"])
+        or (user["id"] == buying["seller_id"] and "SELLER" in user["roles"])
+    ):
+        raise HTTPException(
+            403, "An active buyer or supplier role is required to negotiate"
+        )
+
+
 def open_request(tx, user, request_id):
     buying = service.must(tx, "requests", request_id)
     access(user, buying)
+    require_party(user, buying)
     if buying["status"] != "ACTIVE" or service.must(tx, "pools", buying["pool_id"])[
         "status"
     ] not in {"ACCUMULATING", "FAILED"}:
@@ -140,6 +151,7 @@ def propose(tx, user, data, previous=None):
 
 def accept(tx, user, offer, version):
     access(user, offer)
+    require_party(user, offer)
     if offer["status"] == "ACCEPTED" and offer["version"] == version:
         return offer
     buying = open_request(tx, user, offer["request_id"])
@@ -167,4 +179,23 @@ def accept(tx, user, offer, version):
         offer["id"],
         {"request_id": buying["id"], "version": version},
     )
+    return offer
+
+
+def reject(tx, user, offer, version):
+    access(user, offer)
+    open_request(tx, user, offer["request_id"])
+    if user["id"] == offer["actor"]:
+        raise HTTPException(403, "Only the other party can reject these terms")
+    if offer["version"] != version:
+        raise HTTPException(409, "The offer version changed; review the latest terms")
+    if offer["status"] == "REJECTED":
+        return offer
+    if offer["status"] not in {"SUBMITTED", "COUNTERED"}:
+        raise HTTPException(409, "Only an open proposal can be rejected")
+    if datetime.fromisoformat(offer["expires_at"]) <= datetime.now(UTC):
+        raise HTTPException(409, "Offer expired")
+    offer.update(status="REJECTED", rejected_by=user["id"], rejected_at=now())
+    tx.put("offers", offer)
+    tx.audit(user["id"], "OFFER_REJECTED", offer["id"], {"version": version})
     return offer

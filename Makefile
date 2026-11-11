@@ -15,6 +15,9 @@ frontend:
 worker:
 	cd backend && .venv/bin/python -m app.platform.worker
 
+postman-demo:
+	bash scripts/postman-demo.sh
+
 migrate:
 	cd backend && mkdir -p data && .venv/bin/python -m alembic upgrade head
 

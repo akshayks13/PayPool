@@ -203,6 +203,11 @@ class RoleGrant(Input):
 class Discovery(Input):
     message: str = Field(min_length=1, max_length=1000)
     currency: Literal["USD", "EUR", "GBP", "INR"] = "USD"
+    conversation_version: int | None = Field(default=None, ge=0)
+
+
+class ConversationVersion(Input):
+    version: int = Field(ge=0)
 
 
 class Vehicle(Input):

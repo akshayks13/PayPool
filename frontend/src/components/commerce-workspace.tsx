@@ -17,6 +17,7 @@ import { request } from "@/lib/http";
 import {
   money,
   type Allocation,
+  type Audit,
   type BuyingRequest,
   type Order,
   type Pool,
@@ -332,16 +333,64 @@ function Overview({ data, role }: Common & { role: Role }) {
   );
 }
 
+function ProductImage({ product }: { product: Product }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [product.image_url]);
+  return (
+    <div className="mb-4 flex h-28 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+      {product.image_url && !failed ? (
+        <img
+          src={product.image_url}
+          alt={product.title}
+          loading="lazy"
+          className="h-full max-w-full rounded-xl object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <Package size={30} />
+      )}
+    </div>
+  );
+}
+
 function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
+  const [unit, setUnit] = useState("");
+  const [supplier, setSupplier] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [inStock, setInStock] = useState(true);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [search, category, brand, unit, supplier, currency, inStock]);
   const catalog = useQuery({
-    queryKey: ["catalog-search", data.user.id, search, category],
+    queryKey: [
+      "catalog-search",
+      data.user.id,
+      search,
+      category,
+      brand,
+      unit,
+      supplier,
+      currency,
+      inStock,
+      page,
+    ],
     queryFn: () =>
-      request<{ items: Product[]; engine: string; warning: string | null }>(
-        `/api/v1/catalog/search?q=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&limit=100`,
+      request<{
+        items: Product[];
+        total: number;
+        engine: string;
+        warning: string | null;
+        as_of: string;
+      }>(
+        `/api/v1/catalog/search?${new URLSearchParams({ q: search, category, brand, unit, seller_id: supplier, currency, in_stock: String(inStock), offset: String(page * 20), limit: "20" })}`,
       ),
     enabled: !seller,
     refetchInterval: 5000,
@@ -390,6 +439,68 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
               <option key={c}>{c}</option>
             ))}
           </select>
+          {[
+            {
+              label: "brand",
+              value: brand,
+              set: setBrand,
+              values: Array.from(
+                new Set(
+                  data.products.map((p) => p.attributes.brand).filter(Boolean),
+                ),
+              ),
+            },
+            {
+              label: "unit",
+              value: unit,
+              set: setUnit,
+              values: Array.from(new Set(data.products.map((p) => p.unit))),
+            },
+            {
+              label: "currency",
+              value: currency,
+              set: setCurrency,
+              values: Array.from(new Set(data.products.map((p) => p.currency))),
+            },
+          ].map((f) => (
+            <select
+              className="field !mt-0 !w-auto"
+              aria-label={`Filter product ${f.label}`}
+              key={f.label}
+              value={f.value}
+              onChange={(e) => f.set(e.target.value)}
+            >
+              <option value="">
+                All {f.label === "currency" ? "currencies" : `${f.label}s`}
+              </option>
+              {f.values.sort().map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          ))}
+          <select
+            aria-label="Filter product supplier"
+            className="field !mt-0 !w-auto"
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+          >
+            <option value="">All suppliers</option>
+            {Array.from(new Set(data.products.map((p) => p.seller_id))).map(
+              (id) => (
+                <option value={id} key={id}>
+                  {data.people.find((p) => p.id === id)?.name ?? id}
+                </option>
+              ),
+            )}
+          </select>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={inStock}
+              onChange={(e) => setInStock(e.target.checked)}
+            />
+            In stock only
+          </label>
           {catalog.isLoading && (
             <p className="text-xs text-slate-500">
               Searching current supplier inventory…
@@ -408,10 +519,13 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((p) => (
           <article className="card" key={p.id}>
-            <div className="mb-4 flex h-16 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Package size={30} />
-            </div>
+            <ProductImage product={p} />
             <h3 className="font-bold">{p.title}</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {data.people.find((s) => s.id === p.seller_id)?.name ??
+                p.seller_id}{" "}
+              · {p.currency} · {p.attributes.brand ?? "Brand not specified"}
+            </p>
             {p.description && (
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {p.description}
@@ -421,6 +535,11 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
             <p className="mt-2 text-xs text-slate-500">
               {p.available_stock} {p.unit} available · {p.weight_grams} g / unit
             </p>
+            {p.stock_updated_at && (
+              <p className="mt-1 text-xs text-slate-500">
+                Stock updated {new Date(p.stock_updated_at).toLocaleString()}
+              </p>
+            )}
             <div className="my-4 space-y-2">
               {p.tiers.map((t) => (
                 <div
@@ -450,6 +569,30 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
           </article>
         ))}
       </div>
+      {!seller && catalog.data && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <button
+            className="btn-secondary"
+            disabled={page === 0 || catalog.isFetching}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous products
+          </button>
+          <p>
+            {catalog.data.total} products · Page {page + 1} · Checked{" "}
+            {new Date(catalog.data.as_of).toLocaleTimeString()}
+          </p>
+          <button
+            className="btn-secondary"
+            disabled={
+              (page + 1) * 20 >= catalog.data.total || catalog.isFetching
+            }
+            onClick={() => setPage(page + 1)}
+          >
+            Next products
+          </button>
+        </div>
+      )}
       {!items.length && (
         <Empty text="No matching products in your delivery area." />
       )}
@@ -1814,13 +1957,19 @@ function Operations({
 }: Common & { section: string }) {
   const [auditQuery, setAuditQuery] = useState("");
   const [auditPage, setAuditPage] = useState(0);
-  const auditRows = data.audit.filter((event) =>
-    `${event.action} ${event.actor} ${event.subject} ${event.at}`
-      .toLowerCase()
-      .includes(auditQuery.trim().toLowerCase()),
-  );
-  const pageCount = Math.max(1, Math.ceil(auditRows.length / 20));
-  const currentPage = Math.min(auditPage, pageCount - 1);
+  const audit = useQuery({
+    queryKey: ["audit-history", data.user.id, auditQuery, auditPage],
+    queryFn: () =>
+      request<{ items: Audit[]; total: number }>(
+        `/api/v1/audit?${new URLSearchParams({ q: auditQuery, offset: String(auditPage * 20), limit: "20" })}`,
+      ),
+    enabled: section !== "notifications",
+    refetchInterval: 5000,
+  });
+  const auditRows = audit.data?.items ?? [];
+  const total = audit.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / 20));
+  const currentPage = auditPage;
   if (section === "notifications")
     return (
       <section className="card">
@@ -1958,9 +2107,13 @@ function Operations({
       )}
       <section className="card">
         <h3 className="font-bold">Activity & audit trail</h3>
+        {audit.error && (
+          <p role="alert" className="mt-3 text-red-800">
+            {audit.error.message}
+          </p>
+        )}
         <p className="mt-2 text-xs text-slate-500">
-          Search the latest 100 accessible events. Older history remains in the
-          server audit store.
+          Search your accessible server audit history, including older events.
         </p>
         <input
           className="field mt-4"
@@ -1973,7 +2126,7 @@ function Operations({
           }}
         />
         {auditRows.length ? (
-          auditRows.slice(currentPage * 20, (currentPage + 1) * 20).map((a) => (
+          auditRows.map((a) => (
             <div
               className="flex flex-wrap justify-between gap-2 border-b py-3 text-sm"
               key={a.id}
@@ -1991,23 +2144,27 @@ function Operations({
           ))
         ) : (
           <p className="mt-4 text-sm text-slate-500">
-            {auditQuery ? "No matching activity." : "No account activity yet."}
+            {audit.isLoading
+              ? "Loading audit history…"
+              : auditQuery
+                ? "No matching activity."
+                : "No account activity yet."}
           </p>
         )}
         <div className="mt-4 flex items-center justify-between gap-3 text-sm">
           <button
             className="btn-secondary"
-            disabled={currentPage === 0}
+            disabled={currentPage === 0 || audit.isFetching}
             onClick={() => setAuditPage(currentPage - 1)}
           >
             Previous events
           </button>
           <span>
-            {auditRows.length} events · Page {currentPage + 1} of {pageCount}
+            {total} events · Page {currentPage + 1} of {pageCount}
           </span>
           <button
             className="btn-secondary"
-            disabled={currentPage + 1 >= pageCount}
+            disabled={currentPage + 1 >= pageCount || audit.isFetching}
             onClick={() => setAuditPage(currentPage + 1)}
           >
             Next events

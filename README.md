@@ -69,12 +69,14 @@ npm run test:e2e
 
 Browser tests start isolated API/portal servers with a temporary database. API tests cover ceilings, freight rounding, dropout recovery, payment states, delivery exceptions, refunds, persistence and access control.
 
+`make postman-demo` starts a separate disposable API/database, runs the checked-in [Postman collection](contracts/postman/paypool.postman_collection.json), and cleans up. It exercises 32 requests from three confirmed buying requests through simulated authorization, dispatch, delivery and a matched receipt. Node downloads the pinned Newman runner on first use. The collection can also be imported into Postman; it refuses non-local or non-simulator targets. It is not evidence of a real PayPal transaction.
+
 ## Full application workflow
 
-- Retailers: natural-language discovery, confirmed requests, versioned supplier offers/counters, recurring instructions, final quotes, individual authorization, buyer receipt confirmation and printable reconciliation records.
+- Retailers: saved cross-device buying tasks, natural-language discovery with explicit currency, catalog facets/server pagination, confirmed requests, sortable supplier offer comparison and revision history/counters/rejection, recurring instructions, final quotes, individual authorization, buyer receipt confirmation and printable reconciliation records.
 - Suppliers: reviewed catalog imports, variants/metadata, stock movement history, pricing floors, editable map boundaries, weekly schedules/cutoffs, configurable freight allocation, fleet and dispatch.
 - Drivers: assigned stop order/navigation, delivery evidence, exceptions and preserved redelivery attempts.
-- Operations: persisted audit/notifications, role grants, seller verification, durable event queue, retry diagnostics, payment activity and worker health.
+- Operations: persisted audit/notifications, complete accessible audit search with server pagination, role grants/removal, seller verification, durable event queue, retry diagnostics, payment activity and worker health.
 - External agents: revocable buyer-scoped access, pinned ACP 2026-04-17 continuation sessions and prepared JSONL discovery feeds. Tokenized native payment completion stays disabled without eligible merchant access.
 
 A product's base catalog price is used for public feed preparation; an unearned bulk discount is never advertised as an individual purchase price. Missing public product/image details are reported instead of fabricated.

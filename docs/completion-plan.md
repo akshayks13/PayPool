@@ -20,5 +20,8 @@ The PDF is the customer/workflow foundation. Corrections: no claim of escrow; no
 - [x] Version-pinned ACP contract adapter, authenticated/idempotent endpoints and disabled payment completion without eligible provider access.
 - [x] Coherent retailer, supplier, driver and admin screens backed by the actual services.
 - [x] Updated OpenAPI, setup, product decisions and prompt coverage with tests/build evidence.
+- [x] Saved cross-device buying task with stale-write protection and refreshed estimates on restoration.
+- [x] Server catalog facets/pagination, commercial offer comparison/revision/rejection, and complete accessible audit pagination.
+- [x] Simulator-only Postman walkthrough and disposable one-command runner; real Gemini embedding adapter check.
 
 Actual PayPal, Identity and Gemini verification requires team credentials. Native delegated payments, external signed event delivery and partner merchant onboarding require additional implementation/access; credentials alone do not complete them. See [delivery status](STATUS.md).

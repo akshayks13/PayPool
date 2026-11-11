@@ -47,16 +47,30 @@ test("supplier and buyer exchange persisted terms, manage fleet and inventory", 
   await seller.goto("/seller/offers");
   await seller.getByLabel("Buying request").selectOption(requests[0].id);
   await seller.getByLabel(/Unit offer/).fill("1.50");
+  const proposal = seller.waitForResponse(
+    (r) =>
+      r.url().endsWith("/api/v1/offers") && r.request().method() === "POST",
+  );
   await seller
     .getByRole("button", { name: "Send proposal", exact: true })
     .click();
-  await expect(seller.getByText("SUBMITTED", { exact: true })).toBeVisible();
+  const offer = await (await proposal).json();
+  await expect(
+    seller
+      .locator(`#offer-${offer.id}`)
+      .getByText("SUBMITTED", { exact: true }),
+  ).toBeVisible();
   await buyers[0].goto("/retailer/offers");
   buyers[0].once("dialog", (d) => d.accept());
   await buyers[0]
+    .locator(`#offer-${offer.id}`)
     .getByRole("button", { name: "Accept offer · version 1" })
     .click();
-  await expect(buyers[0].getByText("ACCEPTED", { exact: true })).toBeVisible();
+  await expect(
+    buyers[0]
+      .locator(`#offer-${offer.id}`)
+      .getByText("ACCEPTED", { exact: true }),
+  ).toBeVisible();
   await buyers[0].screenshot({
     path: info.outputPath("accepted-commercial-offer.png"),
     fullPage: true,
@@ -78,14 +92,12 @@ test("supplier and buyer exchange persisted terms, manage fleet and inventory", 
     seller.getByRole("heading", { name: "City delivery van", exact: true }),
   ).toBeVisible();
   await seller.goto("/seller/inventory");
-  const product = seller
-    .locator("article")
-    .filter({
-      has: seller.getByRole("heading", {
-        name: "Sona Masoori rice",
-        exact: true,
-      }),
-    });
+  const product = seller.locator("article").filter({
+    has: seller.getByRole("heading", {
+      name: "Sona Masoori rice",
+      exact: true,
+    }),
+  });
   await product.getByLabel("Stock adjustment").fill("5");
   await product
     .getByLabel("Reason", { exact: true })

@@ -82,6 +82,13 @@ test("clarification keeps the original buying requirements and reset starts fres
     ),
   ).toBeVisible();
   await expect(input).toHaveValue("");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Refresh saved comparison" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Review product & create request" }),
+  ).toHaveCount(0);
   const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   await input.fill(`30 kg by ${date}, landed price below USD 1.70/kg`);
   const response = page.waitForResponse(
@@ -96,6 +103,17 @@ test("clarification keeps the original buying requirements and reset starts fres
   expect(discovery.intent.delivery_date).toBe(date);
   expect(discovery.intent.price_ceiling_per_unit_minor).toBe(170);
   expect(discovery.intent.clarification_questions).toEqual([]);
+  await expect(
+    page.getByRole("button", { name: "Review product & create request" }),
+  ).toHaveCount(2);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Refresh saved comparison" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Review product & create request" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Refresh saved comparison" }).click();
   await expect(
     page.getByRole("button", { name: "Review product & create request" }),
   ).toHaveCount(2);

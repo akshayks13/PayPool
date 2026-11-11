@@ -7,11 +7,13 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy import func, or_, select
 
 from app.platform import commercial, payment_execution, service
 from app.platform.auth import current_user, require_role, store_for
 from app.platform.models import (
     AgentAccess,
+    ConversationVersion,
     CounterOffer,
     ExceptionResolution,
     InventoryChange,
@@ -22,9 +24,94 @@ from app.platform.models import (
     Version,
     Zone,
 )
-from app.platform.store import now
+from app.platform.store import now, records
 
 router = APIRouter(prefix="/api/v1", tags=["commerce operations"])
+
+
+@router.get("/audit")
+def audit_history(
+    q: str = "",
+    offset: int = 0,
+    limit: int = 20,
+    user=Depends(current_user),
+    store=Depends(store_for),
+):
+    if offset < 0 or not 1 <= limit <= 100 or len(q) > 200:
+        raise HTTPException(
+            422, "Use limit 1–100, nonnegative offset and search up to 200 characters"
+        )
+    from app.platform.router import projection
+
+    with store.transaction() as tx:
+        conditions = [records.c.kind == "audit"]
+        if "ADMIN" not in user["roles"]:
+            order_ids = [o["id"] for o in projection(tx, user, "unavailable")["orders"]]
+            conditions.append(
+                or_(
+                    records.c.data["actor"].as_string() == user["id"],
+                    records.c.data["subject"].as_string().in_(order_ids),
+                )
+            )
+        if q.strip():
+            conditions.append(
+                or_(
+                    *[
+                        func.lower(records.c.data[field].as_string()).contains(
+                            q.strip().lower(), autoescape=True
+                        )
+                        for field in ("action", "actor", "subject", "at")
+                    ]
+                )
+            )
+        total = tx.connection.execute(
+            select(func.count()).select_from(records).where(*conditions)
+        ).scalar_one()
+        rows = tx.connection.execute(
+            select(records.c.data)
+            .where(*conditions)
+            .order_by(records.c.data["at"].as_string().desc(), records.c.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return {
+            "items": [dict(row[0]) for row in rows],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
+
+@router.get("/procurement/conversation")
+def conversation(user=Depends(current_user), store=Depends(store_for)):
+    require_role(user, "RETAILER")
+    from app.platform.conversations import current
+
+    with store.transaction() as tx:
+        return current(tx, user)
+
+
+@router.post("/procurement/conversation/reset")
+def reset_conversation(
+    data: ConversationVersion, user=Depends(current_user), store=Depends(store_for)
+):
+    require_role(user, "RETAILER")
+    from app.platform.conversations import check
+
+    with store.transaction() as tx:
+        old = check(tx, user, data.version)
+        return tx.put(
+            "procurement_conversations",
+            {
+                "id": user["id"],
+                "version": old["version"] + 1,
+                "message": "",
+                "intent": None,
+                "history": [],
+                "engine": None,
+                "updated_at": now(),
+            },
+        )
 
 
 @router.get("/seller/product-feed")
@@ -416,6 +503,16 @@ def accept(
 ):
     with store.transaction() as tx:
         return commercial.accept(
+            tx, user, service.must(tx, "offers", offer_id), data.version
+        )
+
+
+@router.post("/offers/{offer_id}/reject")
+def reject_offer(
+    offer_id: str, data: Version, user=Depends(current_user), store=Depends(store_for)
+):
+    with store.transaction() as tx:
+        return commercial.reject(
             tx, user, service.must(tx, "offers", offer_id), data.version
         )
 
@@ -833,6 +930,8 @@ def resolve_exception(
 def catalog(
     q: str = "",
     category: str = "",
+    brand: str = "",
+    unit: str = "",
     seller_id: str = "",
     currency: str = "",
     in_stock: bool = True,
@@ -851,12 +950,21 @@ def catalog(
             p
             for p in items
             if p.get("active", True)
+            and (tx.get("users", p["seller_id"]) or {}).get("verified", False)
+            and (tx.get("users", p["seller_id"]) or {}).get("active", True)
+            and "SELLER" in (tx.get("users", p["seller_id"]) or {}).get("roles", [])
             and (not in_stock or p["available_stock"] > 0)
             and (
                 not category
                 or p.get("category", "General").casefold() == category.casefold()
             )
             and (not seller_id or p["seller_id"] == seller_id)
+            and (
+                not brand
+                or p.get("attributes", {}).get("brand", "").casefold()
+                == brand.casefold()
+            )
+            and (not unit or p["unit"].casefold() == unit.casefold())
             and (not currency or p["currency"] == currency)
         ]
     from app.platform.search import ranked

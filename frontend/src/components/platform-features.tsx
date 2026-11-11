@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/commerce-workspace";
 import { ZoneMap } from "@/components/zone-map";
+import { OfferComparison } from "@/components/offer-comparison";
 import { money, type Product, type Zone } from "@/lib/commerce";
 import { request } from "@/lib/http";
 import type { Role } from "@/lib/roles";
@@ -270,11 +271,12 @@ function Negotiations({ data, features, act, busy, role }: FullProps) {
           )}
         </div>
       )}
+      <OfferComparison data={data} offers={features.offers} />
       {features.offers
         .slice()
         .reverse()
         .map((o) => (
-          <article className="card" key={o.id}>
+          <article className="card scroll-mt-8" key={o.id} id={`offer-${o.id}`}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <h3 className="font-bold">
@@ -315,22 +317,40 @@ function Negotiations({ data, features, act, busy, role }: FullProps) {
                       Propose counter
                     </button>
                     {o.actor !== data.user.id && (
-                      <button
-                        className="btn-primary"
-                        disabled={busy}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              "Accept these base terms? Final freight and order approval follow separately.",
+                      <>
+                        <button
+                          className="btn-primary"
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Accept these base terms? Final freight and order approval follow separately.",
+                              )
                             )
-                          )
-                            act(`/api/v1/offers/${o.id}/accept`, {
-                              version: o.version,
-                            }).catch(() => {});
-                        }}
-                      >
-                        Accept offer · version {o.version}
-                      </button>
+                              act(`/api/v1/offers/${o.id}/accept`, {
+                                version: o.version,
+                              }).catch(() => {});
+                          }}
+                        >
+                          Accept offer · version {o.version}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Reject this commercial proposal? Your buying request remains active.",
+                              )
+                            )
+                              act(`/api/v1/offers/${o.id}/reject`, {
+                                version: o.version,
+                              }).catch(() => {});
+                          }}
+                        >
+                          Reject offer · version {o.version}
+                        </button>
+                      </>
                     )}
                   </>
                 )}

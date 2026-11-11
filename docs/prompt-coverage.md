@@ -6,9 +6,9 @@ The prompts are ownership plans, not proof of implementation. This report identi
 
 | Prompt | Completed application behavior | Account/service verification |
 | --- | --- | --- |
-| 1: Identity/retailer | Server sessions, role/owner checks, expiry handling, no-role onboarding, profile/location, copilot confirmation, catalog/filtering, offers/counters, pools/approval, orders, recurring requests, receipts and agent access | Actual PayPal Identity login needs configured credentials/return URL |
-| 2: Supplier/logistics | Catalog create/update/archive, metadata, reviewed CSV/XLSX imports, version-checked stock movements, pricing floor/tiers, Leaflet boundary editing, schedules/cutoffs, alpha-weighted freight, lock/optimization, immutable snapshots, fleet, manifests, POD/redelivery/exception closure | PostgreSQL checked; PostGIS SQL adapter requires the extension; Elastic/Gemini embeddings need configured services |
-| 3: Agents/commerce | Typed buyer/supplier policies, structured persisted proposals and offer revisions, exact-quote acceptance, persistent payment operations, checkout/auth/capture/void/refund, verified webhook ingestion, out-of-order reads, durable queue/receipts, pinned ACP sessions and discovery-feed preparation | Real Gemini extraction/narration and the browser discovery flow passed; actual PayPal calls still need sandbox access. Delegated Braintree payments, Vault and partner merchant onboarding remain disabled |
+| 1: Identity/retailer | Server sessions, role/owner checks, expiry handling, no-role onboarding, profile/location, saved cross-device copilot tasks and confirmation, catalog/filtering, sortable offer comparison, revision history/counters/rejection, pools/approval, orders, recurring requests, receipts and agent access | Actual PayPal Identity login needs configured credentials/return URL |
+| 2: Supplier/logistics | Catalog facets/server pagination, create/update/archive, metadata, reviewed CSV/XLSX imports, version-checked stock movements, pricing floor/tiers, Leaflet boundary editing, schedules/cutoffs, alpha-weighted freight, lock/optimization, immutable snapshots, fleet, manifests, POD/redelivery/exception closure | PostgreSQL checked; PostGIS SQL adapter requires the extension; Elastic/Gemini embeddings need configured services |
+| 3: Agents/commerce | Typed buyer/supplier policies, structured persisted proposals and offer revisions, exact-quote acceptance, persistent payment operations, checkout/auth/capture/void/refund, verified webhook ingestion, out-of-order reads, durable queue/receipts, pinned ACP sessions and discovery-feed preparation | Real Gemini extraction/narration/embeddings and the browser discovery flow passed; actual PayPal calls still need sandbox access. Delegated Braintree payments, Vault and partner merchant onboarding remain disabled |
 | Frontend | Four connected role workspaces, role navigation, error/loading/empty states, map, pricing and freight breakdowns, receipt confirmation, recurring plans, fleet/inventory, print/export, worker recovery and responsive driver flow | Map tiles use OpenStreetMap and require browser connectivity; coordinates remain editable offline |
 
 ## Canonical routes
@@ -20,11 +20,13 @@ The current FastAPI `/openapi.json` is authoritative. A checked-in snapshot is i
 | Final order approval | `POST /api/v1/pools/{id}/approve` with version; creates the buyer's immutable order |
 | Portal checkout | `POST /api/v1/orders/{id}/checkout`, `/authorize`, `/capture`, `/refund`, `/reconcile` |
 | Pool lifecycle | `/pools/{id}/lock`, `/optimize` (or `/clear`), `/cancel`, `/replan` |
-| Commercial offers | `/offers`, `/offers/{id}`, `/counter`, `/accept` |
+| Commercial offers | `/offers`, `/offers/{id}`, `/counter`, `/accept`, `/reject` |
 | Catalog | `/seller/products`, `/seller/products/{id}`, `/archive`, `/seller/inventory`, `/catalog/search` |
 | Logistics | `/seller/zones`, `/seller/zones/{id}`, `/seller/vehicles`, `/dispatch/{id}/manifest`, `/driver/routes/today` |
 | Delivery evidence | `/orders/{id}/pod`, `/confirm-delivery`, `/resolve-exception` |
 | Recurrence | `/standing-orders`, `/standing-orders/{id}/state` |
+| Saved buying tasks | `/procurement/conversation`, `/procurement/conversation/reset`; `/procurement/discover` accepts `conversation_version` for guarded saves |
+| Audit history | `/audit` with tenant-scoped SQL search and offset/limit pagination |
 | Background operations | `/admin/operations`, `/admin/worker/tick`, `/admin/jobs/{id}/retry` |
 | Receipts | `/orders/{id}/receipt` and `/receipt.html` |
 | External agents | `/me/agent-access`, `/acp/checkout_sessions` and its update/retrieve/complete/cancel operations |
