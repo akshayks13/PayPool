@@ -1,5 +1,13 @@
 # PayPool application architecture
 
+![PayPool complete system architecture](assets/paypool-architecture.svg)
+
+[Full-resolution PNG](assets/paypool-architecture.png) · [Editable SVG](assets/paypool-architecture.svg)
+
+The overview shows the complete integration design, including PayPal REST APIs,
+individual buyer authorization, capture, void, refund and verified webhook events.
+The flow below focuses on the application's transaction and authority boundaries.
+
 ```mermaid
 flowchart TD
   UI[Retailer / Supplier / Driver / Admin portal] --> API[FastAPI + session / role / owner checks]

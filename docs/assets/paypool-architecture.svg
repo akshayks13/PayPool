@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1460" viewBox="0 0 1600 1460" role="img" aria-labelledby="title desc"><title id="title">PayPool full system architecture</title><desc id="desc">Four role portals connect through a secured FastAPI application to bounded AI agents, a deterministic procurement engine and PayPal payments. Fulfillment, a durable event outbox, workers, SQL records and search support the complete purchasing lifecycle.</desc><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0L8 4L0 8" fill="#64748b"/></marker></defs><rect width="1600" height="1460" rx="28" fill="#f4f7fb"/><style>text{font-family:Inter,Arial,sans-serif;fill:#17243b}.title{font-size:44px;font-weight:750}.sub{font-size:19px;fill:#52647b}.label{font-size:15px;font-weight:700;letter-spacing:2px}.head{font-size:23px;font-weight:700}.body{font-size:18px;fill:#43536b}.small{font-size:16px;fill:#52647b}</style>
+<text x="56" y="72" class="title">PayPool</text>
+<text x="56" y="106" class="sub">Collective buying power. Individual payment control.</text>
+<text text-anchor="end" x="1544" y="68" class="label" style="fill:#166bce">SYSTEM ARCHITECTURE</text>
+<text x="56" y="156" class="label">01  EXPERIENCE</text>
+<rect x="56" y="174" width="348" height="106" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="56" y="192" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="78" y="211" class="head">Retailer</text>
+<text x="78" y="243" class="body">Needs · budgets · approvals</text>
+<rect x="436" y="174" width="348" height="106" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="436" y="192" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="458" y="211" class="head">Supplier</text>
+<text x="458" y="243" class="body">Catalog · quotes · inventory</text>
+<rect x="816" y="174" width="348" height="106" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="816" y="192" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="838" y="211" class="head">Driver</text>
+<text x="838" y="243" class="body">Routes · delivery evidence</text>
+<rect x="1196" y="174" width="348" height="106" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="1196" y="192" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="1218" y="211" class="head">Operations admin</text>
+<text x="1218" y="243" class="body">Verification · recovery · audit</text>
+<polyline points="800,280 800,306" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="56" y="310" width="1488" height="118" rx="16" fill="#eaf8f5" stroke="#d8e1ed"/><rect x="56" y="328" width="4" height="26" rx="2" fill="#0b9c90"/>
+<text x="78" y="347" class="head">Next.js portal → FastAPI application</text>
+<text x="78" y="379" class="body">Session authentication · CSRF protection · role and ownership checks · versioned requests</text>
+<text x="78" y="406" class="body">Business profiles · supplier onboarding · authenticated media · notifications · OpenAPI contracts</text>
+<polyline points="292,428 292,448" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="800,428 800,448" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1308,428 1308,448" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="56" y="463" class="label" style="fill:#0b847c">02  INTELLIGENCE</text>
+<text x="564" y="463" class="label" style="fill:#166bce">03  PROCUREMENT &amp; CONSENT</text>
+<text x="1072" y="463" class="label" style="fill:#6353b7">04  PAYPAL PAYMENTS</text>
+<rect x="56" y="482" width="472" height="176" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="56" y="500" width="4" height="26" rx="2" fill="#0b9c90"/>
+<text x="78" y="519" class="head">Buyer &amp; supplier policy agents</text>
+<text x="78" y="551" class="body">Interpret needs and supplier quotations</text>
+<text x="78" y="578" class="body">Suggest compatible groups and counters</text>
+<text x="78" y="605" class="body">Gemini: extraction, retrieval, explanations</text>
+<text x="78" y="632" class="body">Bounded proposals → editable buyer inputs</text>
+<rect x="564" y="482" width="472" height="176" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="564" y="500" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="586" y="519" class="head">Commercial agreement engine</text>
+<text x="586" y="551" class="body">Versioned offers, counters and acceptance</text>
+<text x="586" y="578" class="body">SKU rules · minimums · tiers · stock</text>
+<text x="586" y="605" class="body">Quantity range · target · hard price ceiling</text>
+<text x="586" y="632" class="body">Explicit buyer consent for exact terms</text>
+<rect x="1072" y="482" width="472" height="176" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="1072" y="500" width="4" height="26" rx="2" fill="#6353b7"/>
+<text x="1094" y="519" class="head">Payment orchestration</text>
+<text x="1094" y="551" class="body">Persist operation intent before API calls</text>
+<text x="1094" y="578" class="body">Per-buyer checkout and authorization</text>
+<text x="1094" y="605" class="body">Idempotency · retries · reconciliation</text>
+<text x="1094" y="632" class="body">Stable references for every money action</text>
+<polyline points="528,568 564,568" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1036,568 1072,568" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="292,658 292,694" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="800,658 800,694" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1308,658 1308,694" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<rect x="56" y="702" width="472" height="176" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="56" y="720" width="4" height="26" rx="2" fill="#0b9c90"/>
+<text x="78" y="739" class="head">Discovery &amp; agent interfaces</text>
+<text x="78" y="771" class="body">Catalog search, facets and comparisons</text>
+<text x="78" y="798" class="body">Saved conversations and recurring needs</text>
+<text x="78" y="825" class="body">Reviewed catalog imports and feed export</text>
+<text x="78" y="852" class="body">ACP continuation → buyer approval</text>
+<rect x="564" y="702" width="472" height="176" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="564" y="720" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="586" y="739" class="head">Deterministic clearing &amp; recovery</text>
+<text x="586" y="771" class="body">Combine compatible demand into a run</text>
+<text x="586" y="798" class="body">Validate capacity, cutoffs and freight</text>
+<text x="586" y="825" class="body">Freeze allocation and delivery snapshots</text>
+<text x="586" y="852" class="body">Dropout → re-clear → renewed consent</text>
+<rect x="1072" y="702" width="472" height="176" rx="16" fill="#f0edfc" stroke="#d8e1ed"/><rect x="1072" y="720" width="4" height="26" rx="2" fill="#6353b7"/>
+<text x="1094" y="739" class="head">PayPal REST APIs</text>
+<text x="1094" y="771" class="body">OAuth 2.0 → Orders → buyer approval</text>
+<text x="1094" y="798" class="body">Authorize · capture · void · refund</text>
+<text x="1094" y="825" class="body">Signed webhook verification and dedupe</text>
+<text x="1094" y="852" class="body">Separate buyer payments to merchant</text>
+<polyline points="528,790 564,790" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1036,790 1072,790" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<polyline points="292,878 292,900" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="800,878 800,900" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1308,878 1308,900" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="56" y="915" class="label">05  FULFILLMENT &amp; FINANCIAL RECORDS</text>
+<rect x="56" y="932" width="1488" height="132" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="56" y="950" width="4" height="26" rx="2" fill="#0b9c90"/>
+<text x="78" y="969" class="head">Fulfillment, delivery and reconciliation</text>
+<text x="78" y="1001" class="body">Inventory reservation → fleet / route assignment → driver photo evidence → buyer receipt confirmation</text>
+<text x="78" y="1028" class="body">Delivery-triggered payment actions · exceptions / redelivery · cancellation recovery · printable receipts · reconciled ledger</text>
+<polyline points="800,1064 800,1085" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="56" y="1101" class="label">06  DURABLE DATA &amp; BACKGROUND SERVICES</text>
+<rect x="56" y="1118" width="472" height="150" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="56" y="1136" width="4" height="26" rx="2" fill="#166bce"/>
+<text x="78" y="1155" class="head">Transactional SQL + PostGIS</text>
+<text x="78" y="1187" class="body">Users · catalog · agreements · payments</text>
+<text x="78" y="1214" class="body">Immutable snapshots · evidence · audit</text>
+<text x="78" y="1241" class="body">PostgreSQL / PostGIS · SQLite local mode</text>
+<rect x="564" y="1118" width="472" height="150" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="564" y="1136" width="4" height="26" rx="2" fill="#0b9c90"/>
+<text x="586" y="1155" class="head">Outbox + background workers</text>
+<text x="586" y="1187" class="body">Commit domain changes with events</text>
+<text x="586" y="1214" class="body">Recurrence · expiry · recovery · projections</text>
+<text x="586" y="1241" class="body">SQL worker / Redis + Celery</text>
+<rect x="1072" y="1118" width="472" height="150" rx="16" fill="#fff" stroke="#d8e1ed"/><rect x="1072" y="1136" width="4" height="26" rx="2" fill="#6353b7"/>
+<text x="1094" y="1155" class="head">Search &amp; operational visibility</text>
+<text x="1094" y="1187" class="body">SQL / Elasticsearch discovery indexes</text>
+<text x="1094" y="1214" class="body">Notifications · ledger · worker health</text>
+<text x="1094" y="1241" class="body">Scoped audit search and admin recovery</text>
+<polyline points="528,1192 564,1192" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1036,1192 1072,1192" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="56" y="1300" width="1488" height="106" rx="16" fill="#17243b"/>
+<text x="80" y="1335" class="label" style="fill:#65ddd0">AUTHORITY BOUNDARIES</text>
+<text x="80" y="1366" class="body" style="fill:#fff">AI proposes → deterministic rules validate → each buyer consents → PayPal authorizes → verified events reconcile.</text>
+<text x="80" y="1391" class="small" style="fill:#cad7e7">Secrets stay server-side. Changed terms require fresh approval. Each buyer pays individually; no shared wallet or escrow.</text>
+</svg>

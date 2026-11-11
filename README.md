@@ -1,9 +1,28 @@
+<p align="center">
+  <img src="docs/assets/paypool-logo.png" alt="PayPool — interlocking teal and blue P emblem and wordmark" width="560" />
+</p>
+
+<p align="center"><strong>Collective buying power. Individual payment control.</strong></p>
+
 # PayPool
 
 Independent shops combine wholesale demand into a viable supplier delivery run.
 Each buyer keeps a hard delivered-price limit, approves an exact allocation and
 authorizes their own purchase. If someone leaves, PayPool releases old commitments
 and requires fresh consent for revised terms.
+
+## System architecture
+
+The complete system connects retailer, supplier, driver and operations portals
+to AI-assisted negotiation, deterministic group purchasing, individual PayPal
+payments and delivery reconciliation. Each buyer controls their own approval;
+the platform coordinates the agreement and its lifecycle.
+
+[![PayPool full system architecture: portals, agents, procurement, PayPal APIs, delivery and durable services](docs/assets/paypool-architecture.svg)](docs/assets/paypool-architecture.png)
+
+[Full-resolution diagram](docs/assets/paypool-architecture.png) ·
+[Editable SVG](docs/assets/paypool-architecture.svg) ·
+[Architecture details](docs/architecture.md)
 
 ## Start the app
 
