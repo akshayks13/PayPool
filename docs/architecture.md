@@ -1,5 +1,16 @@
 # PayPool application architecture
 
+## End-to-end flow
+
+![PayPool buying, payment and delivery flow](assets/paypool-system-flow.svg)
+
+[Full-resolution PNG](assets/paypool-system-flow.png) · [Editable SVG](assets/paypool-system-flow.svg)
+
+Solid arrows trace the business and payment journey; dashed arrows connect AI,
+durable data, background jobs and the renewed-consent recovery path.
+
+## Component overview
+
 ![PayPool complete system architecture](assets/paypool-architecture.svg)
 
 [Full-resolution PNG](assets/paypool-architecture.png) · [Editable SVG](assets/paypool-architecture.svg)

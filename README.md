@@ -11,6 +11,16 @@ Each buyer keeps a hard delivered-price limit, approves an exact allocation and
 authorizes their own purchase. If someone leaves, PayPool releases old commitments
 and requires fresh consent for revised terms.
 
+## System flow
+
+[![PayPool end-to-end flow: buying, agents, PayPal, delivery and reconciliation](docs/assets/paypool-system-flow.svg)](docs/assets/paypool-system-flow.png)
+
+Follow the arrows across the first row, back across the second, and forward
+through delivery and settlement. Dashed arrows show AI, data and recovery paths.
+
+[Full-resolution flow diagram](docs/assets/paypool-system-flow.png) ·
+[Editable flow SVG](docs/assets/paypool-system-flow.svg)
+
 ## System architecture
 
 The complete system connects retailer, supplier, driver and operations portals
