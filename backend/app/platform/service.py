@@ -73,7 +73,12 @@ def submit_request(tx, user, data):
         raise HTTPException(
             422, "Product and freight configuration must use the same currency"
         )
-    if not must(tx, "users", item["seller_id"]).get("verified", False):
+    supplier = must(tx, "users", item["seller_id"])
+    if (
+        not supplier.get("verified", False)
+        or not supplier.get("active", True)
+        or "SELLER" not in supplier["roles"]
+    ):
         raise HTTPException(
             409, "Distributor must be verified before accepting requests"
         )
@@ -242,6 +247,22 @@ def clear_pool(tx, user, pool):
                 users[allocation["buyer_id"]]["location"]
             )
             allocation["buyer_name"] = users[allocation["buyer_id"]]["name"]
+            allocation["target_price_minor"] = must(
+                tx, "requests", allocation["request_id"]
+            ).get("target_price_minor")
+            allocation["delivery_contact"] = {
+                key: users[allocation["buyer_id"]].get(key, "")
+                for key in (
+                    "business_address",
+                    "city",
+                    "postal_code",
+                    "country",
+                    "contact_email",
+                    "contact_phone",
+                    "delivery_instructions",
+                    "preferred_delivery_window",
+                )
+            }
             allocation["seller_name"] = users[pool["seller_id"]]["name"]
             allocation["recipient_confirmation_required"] = zone.get(
                 "recipient_confirmation_required", False
@@ -631,6 +652,8 @@ def dispatch(tx, user, pool, driver_id, vehicle_id=None):
     if pool["status"] != "CLEARED":
         raise HTTPException(409, "Only a cleared delivery pool can be dispatched")
     driver = must(tx, "users", driver_id)
+    if not driver.get("active", True):
+        raise HTTPException(409, "This driver's account is disabled")
     if any(
         p["id"] != pool["id"]
         and p["status"] == "DISPATCHED"
@@ -708,6 +731,12 @@ def delivery(tx, user, order, data, payments, defer_capture=False):
     pool = must(tx, "pools", order["pool_id"])
     if pool.get("driver_id") != user["id"]:
         raise HTTPException(403, "This route is not assigned to you")
+    if data.get("evidence_media_id"):
+        media = must(tx, "media", data["evidence_media_id"])
+        if media.get("order_id") != order["id"] or media.get("owner_id") != user["id"]:
+            raise HTTPException(
+                403, "Evidence must belong to this assigned order and driver"
+            )
     if order.get("pod"):
         if all(order["pod"].get(k) == v for k, v in data.items()):
             return order

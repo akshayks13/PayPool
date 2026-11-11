@@ -13,7 +13,9 @@ from app.platform.acp import VERSION as ACP_VERSION
 from app.platform.acp import ProtocolError
 from app.platform.acp import router as acp_router
 from app.platform.auth import current_user
+from app.platform.business import router as business_router
 from app.platform.features_router import router as features_router
+from app.platform.media import router as media_router
 from app.platform.payments import Payments
 from app.platform.router import router as platform_router
 from app.platform.seed import seed
@@ -52,6 +54,8 @@ def create_app(database_url: str | None = None, demo: bool | None = None) -> Fas
         ],
     )
     app.include_router(platform_router)
+    app.include_router(business_router)
+    app.include_router(media_router)
     # The original fixture endpoints accept caller-supplied identities and
     # therefore remain opt-in, demo-only development tools.
     legacy = (

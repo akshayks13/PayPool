@@ -16,7 +16,7 @@ def prepare(tx, seller):
             for field, value in {
                 "description": product.get("description"),
                 "brand": product.get("attributes", {}).get("brand"),
-                "image_url": product.get("image_url"),
+                "image_url": product.get("image_url", "").startswith("https://"),
                 "product_url": product.get("product_url"),
             }.items()
             if not value

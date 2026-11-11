@@ -17,6 +17,10 @@ _PRICE_CEILING = re.compile(
     re.IGNORECASE,
 )
 _ISO_DATE = re.compile(r"\b(?P<date>\d{4}-\d{2}-\d{2})\b")
+_TARGET = re.compile(
+    r"\btarget(?:\s+price)?\s*(?:of|is|:)?\s*(?:₹|\$|usd|eur|gbp|inr)?\s*(?P<amount>\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 _BY_DATE = re.compile(r"\bby\s+(?P<date>[^,;.]+)", re.IGNORECASE)
 
 
@@ -28,6 +32,7 @@ class DeterministicProcurementParser:
         currency = request.currency.upper()
         quantity_match = _QUANTITY.search(message)
         price_match = _PRICE_CEILING.search(message)
+        target_match = _TARGET.search(message)
         date_match = _ISO_DATE.search(message)
         by_date_match = _BY_DATE.search(message)
 
@@ -72,6 +77,14 @@ class DeterministicProcurementParser:
         if ceiling_minor is None:
             questions.append("What is the hard landed-price ceiling per unit?")
 
+        target = (
+            self._to_minor_units(target_match.group("amount")) if target_match else None
+        )
+        if target is not None and ceiling_minor is not None and target > ceiling_minor:
+            target = None
+            questions.append(
+                "The preferred target exceeds the hard ceiling. Please confirm the preferred target."
+            )
         return ProcurementIntent(
             source_message=message,
             product_description=product,
@@ -80,6 +93,7 @@ class DeterministicProcurementParser:
             delivery_date=delivery_date,
             delivery_date_text=delivery_date_text,
             price_ceiling_per_unit_minor=ceiling_minor,
+            target_price_per_unit_minor=target,
             currency=currency,
             substitution_consent=substitution_consent,
             protected_attributes=protected,

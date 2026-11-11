@@ -304,11 +304,40 @@ def projection(tx, user, provider):
         r for r in tx.all("requests") if admin or uid in {r["buyer_id"], r["seller_id"]}
     ]
     visible_people = [
-        public_user(u)
+        (
+            public_user(u)
+            if admin or u["id"] == uid
+            else {
+                k: v
+                for k, v in public_user(u).items()
+                if k
+                in {
+                    "id",
+                    "name",
+                    "roles",
+                    "verified",
+                    "active",
+                    "location",
+                    "contact_email",
+                    "contact_phone",
+                    "business_address",
+                    "city",
+                    "country",
+                    "postal_code",
+                    "delivery_instructions",
+                    "preferred_delivery_window",
+                }
+            }
+        )
         for u in tx.all("users")
         if admin
         or u["id"] == uid
         or ("SELLER" in roles and "DRIVER" in u["roles"])
+        or (
+            "RETAILER" in roles
+            and "SELLER" in u["roles"]
+            and any(z["seller_id"] == u["id"] for z in visible_zones)
+        )
         or (
             "SELLER" in roles
             and any(
@@ -377,7 +406,13 @@ def profile(data: Profile, user=Depends(current_user), store=Depends(store_for))
     if not (-180 <= lon <= 180 and -90 <= lat <= 90):
         raise HTTPException(422, "Invalid longitude / latitude")
     with store.transaction() as tx:
-        if any(
+        user = service.must(tx, "users", user["id"])
+        changes = data.model_dump(mode="json", exclude_unset=True)
+        moving = any(
+            changes.get(k, user.get(k, "")) != user.get(k, "")
+            for k in ("location", "business_address", "city", "postal_code", "country")
+        )
+        if moving and any(
             r["buyer_id"] == user["id"]
             and r["status"] == "ACTIVE"
             and service.must(tx, "pools", r["pool_id"])["status"]
@@ -388,14 +423,18 @@ def profile(data: Profile, user=Depends(current_user), store=Depends(store_for))
                 409,
                 "Withdraw or complete your active orders before changing the delivery location",
             )
-        user.update(data.model_dump(mode="json"))
-        return public_user(tx.put("users", user))
+        user.update(changes)
+        tx.put("users", user)
+        tx.audit(user["id"], "PROFILE_UPDATED", user["id"], {"fields": sorted(changes)})
+        return public_user(user)
 
 
 @router.post("/seller/products")
 def create_product(data: Product, user=Depends(current_user), store=Depends(store_for)):
     require_role(user, "SELLER")
     with store.transaction() as tx:
+        if data.image_url.startswith("/api/v1/media/"):
+            raise HTTPException(422, "Save the product before uploading its image")
         item = tx.put(
             "products",
             {
@@ -416,6 +455,9 @@ def update_product(
     with store.transaction() as tx:
         item = service.must(tx, "products", product_id)
         service.seller_access(user, item["seller_id"])
+        from app.platform.media import validate_image_reference
+
+        validate_image_reference(tx, data.image_url, product_id)
         reserved = item["stock"] - service.available_stock(tx).get(product_id, 0)
         if reserved:
             raise HTTPException(

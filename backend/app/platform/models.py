@@ -54,7 +54,10 @@ class Product(Input):
             raise ValueError(
                 "Negotiation floor cannot exceed the lowest published tier"
             )
-        if self.image_url and not self.image_url.startswith("https://"):
+        if self.image_url and not (
+            self.image_url.startswith("https://")
+            or self.image_url.startswith("/api/v1/media/")
+        ):
             raise ValueError("Product images require an HTTPS URL")
         if self.product_url and not self.product_url.startswith("https://"):
             raise ValueError("Public product pages require an HTTPS URL")
@@ -142,11 +145,19 @@ class Request(Input):
     quantity_min: int = Field(gt=0, le=5000)
     quantity_max: int = Field(gt=0, le=5000)
     ceiling_minor: int = Field(gt=0, le=100000000)
+    target_price_minor: int | None = Field(default=None, gt=0, le=100000000)
     substitute_product_ids: list[str] = Field(default_factory=list, max_length=2)
     note: str = Field(default="", max_length=1000)
 
     @model_validator(mode="after")
     def quantities(self):
+        if (
+            self.target_price_minor is not None
+            and self.target_price_minor > self.ceiling_minor
+        ):
+            raise ValueError(
+                "Target price cannot exceed the hard delivered-price ceiling"
+            )
         if self.quantity_min > self.quantity_max:
             raise ValueError("minimum quantity exceeds maximum")
         if (
@@ -179,6 +190,7 @@ class Delivery(Input):
         | None
     ) = None
     note: str = Field(default="", max_length=1000)
+    evidence_media_id: str | None = None
 
 
 class Refund(Input):
@@ -189,6 +201,51 @@ class Refund(Input):
 class Profile(Input):
     name: str = Field(min_length=2, max_length=200)
     location: tuple[float, float]
+    contact_email: str = Field(default="", max_length=200)
+    contact_phone: str = Field(default="", max_length=40)
+    business_address: str = Field(default="", max_length=500)
+    city: str = Field(default="", max_length=100)
+    postal_code: str = Field(default="", max_length=20)
+    country: str = Field(default="", max_length=100)
+    delivery_instructions: str = Field(default="", max_length=500)
+    preferred_delivery_window: str = Field(default="", max_length=100)
+    notifications_in_app: bool = True
+
+    @model_validator(mode="after")
+    def valid_contact(self):
+        if not (-180 <= self.location[0] <= 180 and -90 <= self.location[1] <= 90):
+            raise ValueError("Provide valid longitude and latitude")
+        if self.contact_email and (
+            "@" not in self.contact_email or " " in self.contact_email
+        ):
+            raise ValueError("Provide a valid contact email")
+        return self
+
+
+class SellerApplication(Input):
+    business_name: str = Field(min_length=2, max_length=200)
+    registration_number: str = Field(min_length=3, max_length=100)
+    business_address: str = Field(min_length=5, max_length=500)
+    contact_email: str = Field(min_length=5, max_length=200)
+    contact_phone: str = Field(min_length=3, max_length=40)
+    catalog_summary: str = Field(min_length=10, max_length=2000)
+
+    @model_validator(mode="after")
+    def valid_email(self):
+        if "@" not in self.contact_email or " " in self.contact_email:
+            raise ValueError("Provide a valid contact email")
+        return self
+
+
+class SellerReview(Input):
+    version: int = Field(gt=0)
+    decision: Literal["APPROVED", "REJECTED"]
+    note: str = Field(min_length=5, max_length=1000)
+
+
+class AccountState(Input):
+    active: bool
+    reason: str = Field(min_length=5, max_length=300)
 
 
 class Dispatch(Input):

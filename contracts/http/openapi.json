@@ -1184,6 +1184,324 @@
         }
       }
     },
+    "/api/v1/me/seller-application": {
+      "get": {
+        "tags": [
+          "business accounts"
+        ],
+        "summary": "Application",
+        "operationId": "application_api_v1_me_seller_application_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "business accounts"
+        ],
+        "summary": "Apply",
+        "operationId": "apply_api_v1_me_seller_application_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerApplication"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/seller-applications": {
+      "get": {
+        "tags": [
+          "business accounts"
+        ],
+        "summary": "Applications",
+        "operationId": "applications_api_v1_admin_seller_applications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/seller-applications/{user_id}/review": {
+      "post": {
+        "tags": [
+          "business accounts"
+        ],
+        "summary": "Review",
+        "operationId": "review_api_v1_admin_seller_applications__user_id__review_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/state": {
+      "post": {
+        "tags": [
+          "business accounts"
+        ],
+        "summary": "Account State",
+        "operationId": "account_state_api_v1_admin_users__user_id__state_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountState"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/seller/products/{product_id}/image": {
+      "post": {
+        "tags": [
+          "images and evidence"
+        ],
+        "summary": "Product Image",
+        "operationId": "product_image_api_v1_seller_products__product_id__image_post",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_product_image_api_v1_seller_products__product_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{order_id}/evidence-image": {
+      "post": {
+        "tags": [
+          "images and evidence"
+        ],
+        "summary": "Evidence Image",
+        "operationId": "evidence_image_api_v1_orders__order_id__evidence_image_post",
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_evidence_image_api_v1_orders__order_id__evidence_image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/media/{media_id}": {
+      "get": {
+        "tags": [
+          "images and evidence"
+        ],
+        "summary": "Read Image",
+        "operationId": "read_image_api_v1_media__media_id__get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/audit": {
       "get": {
         "tags": [
@@ -3042,6 +3360,27 @@
   },
   "components": {
     "schemas": {
+      "AccountState": {
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "active",
+          "reason"
+        ],
+        "title": "AccountState"
+      },
       "AgentAccess": {
         "properties": {
           "name": {
@@ -3065,6 +3404,20 @@
         ],
         "title": "AgentAccess"
       },
+      "Body_evidence_image_api_v1_orders__order_id__evidence_image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_evidence_image_api_v1_orders__order_id__evidence_image_post"
+      },
       "Body_preview_api_v1_seller_imports_preview_post": {
         "properties": {
           "file": {
@@ -3078,6 +3431,20 @@
           "file"
         ],
         "title": "Body_preview_api_v1_seller_imports_preview_post"
+      },
+      "Body_product_image_api_v1_seller_products__product_id__image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_product_image_api_v1_seller_products__product_id__image_post"
       },
       "ConversationVersion": {
         "properties": {
@@ -3189,6 +3556,17 @@
             "maxLength": 1000,
             "title": "Note",
             "default": ""
+          },
+          "evidence_media_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Media Id"
           }
         },
         "additionalProperties": false,
@@ -3499,6 +3877,18 @@
             ],
             "title": "Price Ceiling Per Unit Minor"
           },
+          "target_price_per_unit_minor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Per Unit Minor"
+          },
           "currency": {
             "type": "string",
             "title": "Currency"
@@ -3702,6 +4092,59 @@
             "maxItems": 2,
             "minItems": 2,
             "title": "Location"
+          },
+          "contact_email": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Contact Email",
+            "default": ""
+          },
+          "contact_phone": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Contact Phone",
+            "default": ""
+          },
+          "business_address": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Business Address",
+            "default": ""
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "City",
+            "default": ""
+          },
+          "postal_code": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Postal Code",
+            "default": ""
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Country",
+            "default": ""
+          },
+          "delivery_instructions": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Delivery Instructions",
+            "default": ""
+          },
+          "preferred_delivery_window": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Preferred Delivery Window",
+            "default": ""
+          },
+          "notifications_in_app": {
+            "type": "boolean",
+            "title": "Notifications In App",
+            "default": true
           }
         },
         "additionalProperties": false,
@@ -3767,6 +4210,19 @@
             "exclusiveMinimum": 0.0,
             "title": "Ceiling Minor"
           },
+          "target_price_minor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Minor"
+          },
           "substitute_product_ids": {
             "items": {
               "type": "string"
@@ -3813,6 +4269,88 @@
           "role"
         ],
         "title": "RoleGrant"
+      },
+      "SellerApplication": {
+        "properties": {
+          "business_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Business Name"
+          },
+          "registration_number": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Registration Number"
+          },
+          "business_address": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 5,
+            "title": "Business Address"
+          },
+          "contact_email": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 5,
+            "title": "Contact Email"
+          },
+          "contact_phone": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Contact Phone"
+          },
+          "catalog_summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Catalog Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "business_name",
+          "registration_number",
+          "business_address",
+          "contact_email",
+          "contact_phone",
+          "catalog_summary"
+        ],
+        "title": "SellerApplication"
+      },
+      "SellerReview": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Version"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED"
+            ],
+            "title": "Decision"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 5,
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "decision",
+          "note"
+        ],
+        "title": "SellerReview"
       },
       "StandingOrder": {
         "properties": {

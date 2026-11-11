@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSession } from "@/components/providers";
+import { SellerApplicationPanel } from "@/components/business-profile";
 
 export default function Onboarding() {
   const { user, loading, signOut } = useSession();
@@ -40,6 +41,11 @@ export default function Onboarding() {
             </button>
           )}
         </div>
+        {user && (
+          <div className="mt-6">
+            <SellerApplicationPanel user={user} />
+          </div>
+        )}
       </section>
     </main>
   );

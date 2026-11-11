@@ -1,120 +1,109 @@
 # PayPool
 
-Independent shops combine compatible wholesale demand into one delivery run. Each buyer keeps their own price limit, approves their exact allocation, and authorizes their own payment. A withdrawal triggers a new agreement and fresh consent.
+Independent shops combine wholesale demand into a viable supplier delivery run.
+Each buyer keeps a hard delivered-price limit, approves an exact allocation and
+authorizes their own purchase. If someone leaves, PayPool releases old commitments
+and requires fresh consent for revised terms.
 
-This repository includes a working multi-role portal and persistent procurement API. Read [delivery status](docs/STATUS.md) for the authoritative completion report, [implementation status](docs/implementation.md) for feature/test details and [demo walkthrough](docs/demo.md) for a presentation script.
+## Start the app
 
-For submission requirements, the draft description and a timed video plan, see [hackathon submission](docs/hackathon-submission.md). Real Gemini extraction/narration have been verified; PayPal payments currently run in explicitly labelled simulation mode pending sandbox access.
-
-The [acceptance audit](docs/acceptance-audit.md) reconciles the original 13-page PDF
-and all implementation prompts. It explicitly records missing and changed
-requirements; a working local demo is not a claim of full original-spec completion.
-
-## Run locally
-
-Requires Python 3.12+ and Node 22+.
+Requires **Python 3.12+ and Node.js 22+**. From this directory:
 
 ```sh
-make setup
-make dev
+make setup   # first time: installs backend and frontend dependencies
+make dev     # starts API, web app and background worker together
 ```
 
-`make dev` starts the API, portal and durable worker. Stop all three with Ctrl+C. For separate terminals use `make backend`, `make frontend`, and `make worker`. `make migrate` applies the schema history without deleting existing records.
-
-For a repeatable recording, stop an existing run and use `make demo`. This starts
-the same portal/API/worker on a **new, separate SQLite database**, explicitly uses
-simulated payments, and preserves your existing database. The terminal prints the
-new database path; it is retained after stopping. Gemini uses your private local
-configuration if configured; otherwise the copilot is explicitly offline.
-
 Open **http://localhost:3000**. API documentation: **http://localhost:8000/docs**.
+Stop all three processes with Ctrl+C. After installation, only `make dev` is needed.
 
-Defaults: persistent SQLite at `backend/data/paypool.db`, fictional businesses and prices, explicitly labelled offline parsing, simulated payments. No API keys required. Restarting servers preserves sessions and orders. Use a separate `DATABASE_URL` for a fresh demonstration; do not delete a database containing unresolved sandbox payments.
+For a fresh recording/demo, stop the current run and use `make demo`. It uses a
+new, separate database and preserves existing development data. The terminal
+prints the retained demo database path. `make dev` uses persistent SQLite at
+`backend/data/paypool.db`. Docker, Redis and PostgreSQL are not needed locally.
 
-Select a demo account on the login screen, then click **Sign in**. Shared development password: `PayPool-demo-2026!`.
+Select a demo account and click Sign in. Development password: **PayPool-demo-2026!**.
+These accounts are refused when demo mode is disabled.
 
 | Account | Role |
 | --- | --- |
-| ananya@paypool.demo | Retailer · GreenMart |
-| rahul@paypool.demo | Retailer · Corner Store |
-| meera@paypool.demo | Retailer · Fresh Basket |
-| seller@paypool.demo | Sree Distributors |
-| driver@paypool.demo | Delivery driver |
-| admin@paypool.demo | Operations |
+| ananya@paypool.demo | Retailer / GreenMart |
+| rahul@paypool.demo | Retailer / Corner Store |
+| meera@paypool.demo | Retailer / Fresh Basket |
+| seller@paypool.demo | Supplier / Sree Distributors |
+| driver@paypool.demo | Driver / Kiran |
+| admin@paypool.demo | Operations administrator |
 
-Use separate browser profiles/incognito contexts for several signed-in users. Coordinates are in Bengaluru; USD prices are **fictional sandbox fixtures**, not Indian market quotations.
+Use separate browser profiles for multiple roles. Businesses, USD prices and
+coordinates are fictional demo fixtures. Payments are explicitly simulated;
+no real money moves in demo mode.
 
-## Real integrations
+## What works
 
-Copy `backend/.env.example` to `backend/.env` to change configuration. Secrets stay server-side and are ignored by Git. Frontend `API_BASE_URL` controls its same-origin `/api` proxy.
+- Business/contact/delivery profiles, notification preferences and protected address changes.
+- Supplier application, rejection/correction/resubmission, administrator approval and account disable/reactivation.
+- Supplier catalog, tier prices, stock movements, reviewed CSV/XLSX imports and authenticated product-photo uploads.
+- Catalog search/facets/pages, saved buying conversations, Gemini-assisted interpretation/explanations, quantity range, preferred target and hard ceiling.
+- Buyer/supplier policy recommendations, versioned offers/counters/rejection, comparison and revision history.
+- Editable delivery zones/schedules, fleet, capacity/freight clearing and immutable individual approvals.
+- Simulated or configured sandbox checkout, durable financial recovery and renewed approval after group changes.
+- Assigned driver routes, snapshotted delivery contacts, photo evidence, exceptions/redelivery and buyer confirmation.
+- Reconciled printable receipts, notifications, audit search, worker health, ledger and job recovery.
 
-**Gemini:** set `GEMINI_API_KEY`, an account-accessible `PAYPOOL_GEMINI_MODEL`, and `PAYPOOL_LLM_PROVIDER=gemini`. Structured extraction and narration use persisted catalog facts. Provider failures are visible. Offline mode is explicitly identified and does not impersonate a model call.
+## Optional connections
 
-**PayPal sandbox:** set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_SELLER_ID` to the PayPool distributor receiving funds (`seller-demo` for the seeded demo). Buyers approve on PayPal; the API authorizes the exact agreed amount and captures after complete acknowledged delivery. This build supports **one configured sandbox merchant**, with separate purchases per buyer. It provides no pooled wallet or escrow.
+Server-only settings live in ignored `backend/.env`; start from `.env.example`
+only for a new checkout, preserving any existing key file.
 
-Register an HTTPS webhook at `/api/v1/webhooks/paypal`, set `PAYPAL_WEBHOOK_ID`, and subscribe to authorization/capture/refund events. Events are signature-verified through PayPal, deduplicated and reconciled against provider reads. PayPal's mock webhook simulator does not support this postback-verification path; use events from sandbox purchases. See [authorization/capture](https://developer.paypal.com/docs/checkout/standard/customize/authorization/) and [webhook integration](https://developer.paypal.com/api/rest/webhooks/rest/).
+**Gemini:** set `GEMINI_API_KEY`, `PAYPOOL_LLM_PROVIDER=gemini` and optionally
+`PAYPOOL_GEMINI_MODEL` (default `gemini-2.5-flash`). Without a key, the local default
+is explicitly labelled offline interpretation. The team's local key is not in Git.
 
-**PayPal Login:** separately enable Identity access, register `http://localhost:3000/api/v1/auth/paypal/callback`, and set `PAYPAL_LOGIN_ENABLED=true`. New identities start as retailers; admins grant other roles. Login uses the authorization-code exchange, authenticated userinfo, browser-bound state and stable provider subject. See [PayPal Login setup](https://developer.paypal.com/docs/log-in-with-paypal/integrate/).
+**PayPal:** current payments are simulated at the team's request. The sandbox
+Orders/authorization/capture/void/refund/webhook adapters exist but need actual
+account verification. When access is available, set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`,
+`PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` and `PAYPAL_SELLER_ID`.
+Use sandbox merchant/buyer accounts and real verified webhook events. Optional
+PayPal Login is configured separately through `PAYPAL_LOGIN_ENABLED` and a
+registered callback. This build supports one configured merchant, not a pooled
+wallet, escrow or automatic multi-merchant payout.
 
-**PostgreSQL/PostGIS:** set `DATABASE_URL=postgresql://...` and optionally `PAYPOOL_POSTGIS=true` for indexed `ST_Covers` eligibility. SQLite uses a tested boundary-inclusive geometry fallback. Optional `docker compose up --build` starts a local PostGIS stack; the container path has not been exercised in the current environment.
+Optional PostgreSQL/PostGIS, Redis/Celery and Elasticsearch configuration is in
+`backend/.env.example` and `compose.yaml`. Their local fallback is sufficient for
+the demo. Do not treat a configured adapter as a verified deployment.
 
-For an unseeded sandbox environment set `PAYPOOL_DEMO_MODE=false`, `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`, and `PAYPOOL_COOKIE_SECURE=true` behind HTTPS. Demo accounts and sessions are refused outside demo mode. Bootstrap accounts privately:
-
-```sh
-cd backend
-.venv/bin/python -m app.platform.accounts --email ops@example.com --name "Operations" --role ADMIN
-```
-
-Passwords are prompted privately. Use `--role SELLER --verified --lon ... --lat ...` for a distributor and set `PAYPAL_SELLER_ID` to the returned ID. This is a local operator tool, not a public role-grant endpoint.
-
-## Checks
-
-```sh
-make test
-cd frontend
-npm run build
-npx playwright install chromium
-npm run test:e2e
-```
-
-Browser tests start isolated API/portal servers with a temporary database. API tests cover ceilings, freight rounding, dropout recovery, payment states, delivery exceptions, refunds, persistence and access control.
-
-`make postman-demo` starts a separate disposable API/database, runs the checked-in [Postman collection](contracts/postman/paypool.postman_collection.json), and cleans up. It exercises 32 requests from three confirmed buying requests through simulated authorization, dispatch, delivery and a matched receipt. Node downloads the pinned Newman runner on first use. The collection can also be imported into Postman; it refuses non-local or non-simulator targets. It is not evidence of a real PayPal transaction.
-
-## Full application workflow
-
-- Retailers: saved cross-device buying tasks, natural-language discovery with explicit currency, catalog facets/server pagination, confirmed requests, sortable supplier offer comparison and revision history/counters/rejection, recurring instructions, final quotes, individual authorization, buyer receipt confirmation and printable reconciliation records.
-- Suppliers: reviewed catalog imports, variants/metadata, stock movement history, pricing floors, editable map boundaries, weekly schedules/cutoffs, configurable freight allocation, fleet and dispatch.
-- Drivers: assigned stop order/navigation, delivery evidence, exceptions and preserved redelivery attempts.
-- Operations: persisted audit/notifications, complete accessible audit search with server pagination, role grants/removal, seller verification, durable event queue, retry diagnostics, payment activity and worker health.
-- External agents: revocable buyer-scoped access, pinned ACP 2026-04-17 continuation sessions and prepared JSONL discovery feeds. Tokenized native payment completion stays disabled without eligible merchant access.
-
-A product's base catalog price is used for public feed preparation; an unearned bulk discount is never advertised as an individual purchase price. Missing public product/image details are reported instead of fabricated.
-
-## Workers and optional services
-
-The default worker uses the SQL outbox and needs no Redis. For Celery:
-
-```sh
-cd backend
-.venv/bin/python -m celery -A app.platform.tasks worker --beat --loglevel=INFO
-```
-
-Configure `REDIS_URL`. Optional Elastic retrieval uses `ELASTICSEARCH_URL`; `PAYPOOL_EMBEDDINGS_ENABLED=true` adds 768-dimensional Gemini embeddings and reciprocal rank fusion. SQL revalidates stock, ownership, serviceability and final prices. Outbox jobs index catalog changes. Provider failures visibly use the keyword fallback.
-
-`ACP_ENABLED=false` is the default. Enabling it exposes a constrained continuation API, not native agent payment processing. Read [ACP integration](docs/acp.md), [prompt coverage](docs/prompt-coverage.md), and [product decisions](docs/product-decisions.md).
-
-## Design boundaries
-
-- Money is integer minor units. Seller prices must include tax; the delivered total adds disclosed freight. There is no separate tax or provider-fee engine.
-- Bounded OR-Tools manifest search allows six buyers, integer catalog units and 30,000 candidates. Every integer quantity in the approved interval is searched. A larger search is rejected explicitly; this is not an unbounded or continuous optimizer.
-- Stop sequencing uses geographic distance, not road traffic or live ETAs.
-- Buyer/supplier agents are application policy roles with optional Gemini assistance. Independent distributed agent workers are not deployed.
-- Native delegated payments, vaulting, multi-merchant onboarding and live payments are disabled. The ACP continuation API is also off by default. [Delivery status](docs/STATUS.md) distinguishes implemented features, unverified integrations and remaining work.
+## Code and checks
 
 ```text
-frontend/    Next.js portal, authenticated API client, browser tests
-backend/     FastAPI, solver, persistence, PayPal adapters, API tests
-contracts/   Current OpenAPI snapshot and pinned ACP schemas
-docs/        Product vision, current status and demo
+frontend/   Next.js / React / TypeScript portal
+backend/    FastAPI, SQLAlchemy, domain rules, solver, integrations and workers
+contracts/  Current OpenAPI, pinned external-agent schemas and Postman collection
 ```
+
+Run checks appropriate to changed code:
+
+```sh
+(cd backend && .venv/bin/python -m pytest -q tests/test_business.py)
+(cd frontend && npm run typecheck)
+(cd frontend && npm run test:e2e -- e2e/business.spec.ts)
+```
+
+`make test` runs all backend tests plus typechecking. `npm run build` in `frontend`
+checks a production build; stop the local frontend first. `make postman-demo`
+starts a disposable API and executes the 32-request simulator walkthrough without
+changing your working database. It downloads the pinned Newman runner on first use.
+
+Images are authenticated, limited to PNG/JPEG/WebP up to 2 MB and 16 megapixels,
+normalized to at most 2048 px, stripped of embedded metadata and stored in SQL.
+There is a 100-image limit per account. Internal images are not published in feeds.
+
+## Project notes
+
+- [Current scope and remaining setup](docs/STATUS.md)
+- [Architecture](docs/architecture.md)
+- [Demo walkthrough](docs/demo.md)
+- [Submission description and video plan](docs/hackathon-submission.md)
+- [External-agent interface](docs/acp.md)
+
+Historical prompts, audits and prototype screens were removed from the current
+tree; Git retains their history. Keep submissions aligned with the actual build.

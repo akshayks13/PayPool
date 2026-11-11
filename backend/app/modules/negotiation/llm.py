@@ -27,6 +27,9 @@ Use null for unavailable values. For an ambiguous relative date such as 'Friday'
 preserve its text but leave delivery_date null. Return concise clarification questions
 for product/specification, quantity/unit, ISO delivery date, or landed-price ceiling
 whenever each is missing. The price ceiling must be in integer minor currency units.
+Distinguish an optional preferred target price from the hard maximum delivered-price
+ceiling. Never replace an explicit hard ceiling with a target. Leave the target
+null unless stated explicitly; both prices use the same selling unit and currency.
 """
 
 
@@ -189,6 +192,7 @@ class LLMExtraction(BaseModel):
     delivery_date: date | None = None
     delivery_date_text: str | None = Field(default=None, max_length=100)
     price_ceiling_per_unit_minor: int | None = Field(default=None, ge=0)
+    target_price_per_unit_minor: int | None = Field(default=None, ge=0)
     substitution_consent: bool = False
     protected_attributes: tuple[str, ...] = ()
     clarification_questions: tuple[str, ...] = ()
@@ -257,6 +261,18 @@ class GeminiProcurementExtractor:
         unit = normalize_quantity_unit(extracted.quantity_unit)
         product = (extracted.product_description or "").strip() or None
         questions = list(extracted.clarification_questions)
+        target = extracted.target_price_per_unit_minor
+        if target is not None and target <= 0:
+            target = None
+        if (
+            target is not None
+            and extracted.price_ceiling_per_unit_minor is not None
+            and target > extracted.price_ceiling_per_unit_minor
+        ):
+            target = None
+            questions.append(
+                "The preferred target exceeds the hard ceiling. Please confirm the preferred target."
+            )
         missing_questions = (
             (product is None, "What product and required specification do you need?"),
             (quantity is None or unit is None, "What quantity and unit do you need?"),
@@ -281,6 +297,7 @@ class GeminiProcurementExtractor:
             delivery_date=extracted.delivery_date,
             delivery_date_text=extracted.delivery_date_text,
             price_ceiling_per_unit_minor=extracted.price_ceiling_per_unit_minor,
+            target_price_per_unit_minor=target,
             currency=request.currency.upper(),
             substitution_consent=extracted.substitution_consent,
             protected_attributes=extracted.protected_attributes,

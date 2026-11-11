@@ -42,4 +42,11 @@ A single configured merchant receives separate buyer payments in the current san
 
 ## Operational envelope
 
-One request per buyer per run, six buyers, one vehicle and an explicit 30,000-manifest budget. Domain records are stored as SQL JSON documents with an Alembic baseline. The architecture is a modular monolith; a distributed microservice topology or an unbounded optimizer is not claimed. See [implementation status](implementation.md) for account/service dependencies and validation evidence.
+One request per buyer per run, six buyers, one vehicle and an explicit 30,000-manifest budget. Domain records are stored as SQL JSON documents with an Alembic baseline. The architecture is a modular monolith; a distributed microservice topology or an unbounded optimizer is not claimed. See [project scope](STATUS.md) for account/service dependencies and validation evidence.
+
+## Business accounts and images
+
+`business.py` owns versioned supplier applications/reviews and account controls.
+`media.py` validates and normalizes product/delivery images, stores them in SQL,
+and checks catalog/order authorization on every read. Profile updates preserve
+login identity and roles; delivery contacts are snapshotted into agreements.

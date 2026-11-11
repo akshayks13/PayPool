@@ -416,6 +416,11 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
               initialCeiling={
                 (result.intent.price_ceiling_per_unit_minor ?? 170) / 100
               }
+              initialTarget={
+                result?.intent.target_price_per_unit_minor != null
+                  ? result.intent.target_price_per_unit_minor / 100
+                  : undefined
+              }
               initialDate={result.intent.delivery_date ?? undefined}
               onDone={() => {
                 setSelected(null);

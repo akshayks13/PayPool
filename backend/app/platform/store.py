@@ -142,6 +142,10 @@ class Transaction:
             },
         )
         recipients = {actor}
+        if action.startswith(("ROLE_", "ACCOUNT_", "SELLER_APPLICATION_")) and self.get(
+            "users", subject
+        ):
+            recipients.add(subject)
         for kind in ("pools", "orders", "requests", "offers", "standing_orders"):
             record = self.get(kind, subject)
             if not record:
@@ -156,6 +160,20 @@ class Transaction:
                 if request:
                     recipients.add(request["buyer_id"])
         for user_id in recipients:
+            recipient = self.get("users", user_id) or {}
+            mandatory = action.startswith(
+                (
+                    "PAYMENT_",
+                    "ROLE_",
+                    "ACCOUNT_",
+                    "PAYPAL_",
+                    "POD_",
+                    "BUYER_RECEIPT_",
+                    "SELLER_APPLICATION_",
+                )
+            )
+            if not recipient.get("notifications_in_app", True) and not mandatory:
+                continue
             self.put(
                 "notifications",
                 {

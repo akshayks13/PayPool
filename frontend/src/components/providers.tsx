@@ -16,6 +16,16 @@ export type User = {
   roles: Role[];
   location: [number, number];
   verified: boolean;
+  active?: boolean;
+  contact_email?: string;
+  contact_phone?: string;
+  business_address?: string;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+  delivery_instructions?: string;
+  preferred_delivery_window?: string;
+  notifications_in_app?: boolean;
 };
 type Session = {
   user: User;
@@ -34,6 +44,7 @@ type Context = {
   paymentProvider: string;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 const SessionContext = createContext<Context | null>(null);
 export function useSession() {
@@ -103,6 +114,16 @@ export function AppProviders({ children }: { children: ReactNode }) {
           paymentProvider: session?.payment_provider ?? "unavailable",
           signIn,
           signOut,
+          refreshSession: async () => {
+            const latest = await request<Session>("/api/v1/me");
+            setCsrf(latest.csrf);
+            setSession(latest);
+            setActiveRole((current) =>
+              current && latest.user.roles.includes(current)
+                ? current
+                : (latest.user.roles[0] ?? null),
+            );
+          },
         }}
       >
         {children}

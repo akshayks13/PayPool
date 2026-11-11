@@ -389,6 +389,9 @@ function StandingOrders({ data, features, act, busy }: FullProps) {
           quantity_min: Number(f.get("min")),
           quantity_max: Number(f.get("max")),
           ceiling_minor: Math.round(Number(f.get("ceiling")) * 100),
+          target_price_minor: f.get("target")
+            ? Math.round(Number(f.get("target")) * 100)
+            : null,
         },
       });
     } catch {}
@@ -397,6 +400,10 @@ function StandingOrders({ data, features, act, busy }: FullProps) {
     <div className="space-y-5">
       <section className="card">
         <h2 className="text-xl font-bold">Recurring buying instructions</h2>
+        <p className="mt-2 text-xs text-slate-500">
+          Preferred targets guide buying decisions; the hard ceiling is never
+          relaxed.
+        </p>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Schedule recurring requests within your limits. Each occurrence still
           needs final order approval and individual payment authorization.
@@ -410,6 +417,16 @@ function StandingOrders({ data, features, act, busy }: FullProps) {
               defaultValue="Weekly stock"
               minLength={2}
               required
+            />
+          </label>
+          <label className="label">
+            Preferred target price (optional)
+            <input
+              className="field"
+              name="target"
+              type="number"
+              min="0.01"
+              step="0.01"
             />
           </label>
           <label className="label">

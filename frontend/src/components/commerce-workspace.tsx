@@ -28,6 +28,11 @@ import type { Role } from "@/lib/roles";
 import { PlatformFeatures } from "@/components/platform-features";
 import type { Features } from "@/lib/features";
 import { ConnectedCopilot } from "@/components/connected-copilot";
+import {
+  BusinessProfile,
+  SellerReviewQueue,
+} from "@/components/business-profile";
+import { ImageUpload } from "@/components/image-upload";
 
 type Act = (
   path: string,
@@ -633,12 +638,14 @@ export function BuyingForm({
   onDone,
   initialQuantity = 30,
   initialCeiling,
+  initialTarget,
   initialDate,
 }: Common & {
   product: Product;
   onDone: () => void;
   initialQuantity?: number;
   initialCeiling?: number;
+  initialTarget?: number;
   initialDate?: string;
 }) {
   const zones = data.zones.filter(
@@ -674,6 +681,9 @@ export function BuyingForm({
         quantity_min: Number(form.get("min")),
         quantity_max: Number(form.get("max")),
         ceiling_minor: Math.round(Number(form.get("ceiling")) * 100),
+        target_price_minor: form.get("target")
+          ? Math.round(Number(form.get("target")) * 100)
+          : null,
         substitute_product_ids: form.getAll("substitute"),
         note: String(form.get("note") ?? ""),
       });
@@ -753,6 +763,18 @@ export function BuyingForm({
         </span>
       </label>
       <label className="label">
+        Target delivered price (optional, {product.currency} / {product.unit})
+        <input
+          className="field"
+          name="target"
+          defaultValue={initialTarget}
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="Preferred price, below your hard limit"
+        />
+      </label>
+      <label className="label">
         Notes
         <input
           className="field"
@@ -808,10 +830,16 @@ function Requests({ data, act, busy, seller }: Common & { seller: boolean }) {
             </div>
             <Badge value={r.status} />
           </div>
-          <p className="mt-4 text-sm">
+          <div className="mt-4 text-sm">
             Maximum delivered unit price:{" "}
             <b>{money(r.ceiling_minor, r.currency)}</b>
-          </p>
+            {r.target_price_minor != null && (
+              <p className="mt-1 text-xs text-slate-500">
+                Preferred target {money(r.target_price_minor, r.currency)} /
+                unit; the hard ceiling remains binding.
+              </p>
+            )}
+          </div>
           <div className="mt-4 flex gap-2">
             <Link
               className="btn-secondary"
@@ -991,6 +1019,15 @@ function Pools({
                         </td>
                         <td className="px-2">
                           {money(a.ceiling_minor, a.currency)}
+                          {a.target_price_minor != null && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Target {money(a.target_price_minor, a.currency)} ·{" "}
+                              {a.total_minor <=
+                              a.target_price_minor * a.quantity
+                                ? "Target met"
+                                : "Above preferred target"}
+                            </p>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1046,7 +1083,10 @@ function Pools({
                         onChange={(e) => setDriver(e.target.value)}
                       >
                         {data.people
-                          .filter((u) => u.roles.includes("DRIVER"))
+                          .filter(
+                            (u) =>
+                              u.roles.includes("DRIVER") && u.active !== false,
+                          )
                           .map((u) => (
                             <option value={u.id} key={u.id}>
                               {u.name}
@@ -1201,6 +1241,34 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
                     data.products.find((p) => p.id === o.product_id)?.title ??
                     o.product_id}
                 </h3>
+                {role === "DRIVER" && (
+                  <div className="mt-2 text-sm">
+                    <b>
+                      Deliver to{" "}
+                      {o.buyer_name ?? data.people.find((p) => p.id === o.buyer_id)?.name ??
+                        o.buyer_id}
+                    </b>
+                    {o.delivery_contact && (
+                      <>
+                        <p>
+                          {[
+                            o.delivery_contact.business_address,
+                            o.delivery_contact.city,
+                            o.delivery_contact.postal_code,
+                            o.delivery_contact.country,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                        <p>
+                          {o.delivery_contact.contact_phone}{" "}
+                          {o.delivery_contact.preferred_delivery_window}
+                        </p>
+                        <p>{o.delivery_contact.delivery_instructions}</p>
+                      </>
+                    )}
+                  </div>
+                )}
                 <p className="mt-1 text-sm text-slate-500">
                   {o.quantity} units · {money(o.total_minor, o.currency)}{" "}
                   including {money(o.freight_minor, o.currency)} freight
@@ -1375,6 +1443,16 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
             {o.pod && (
               <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm">
                 <b>Delivery evidence</b>
+                {o.pod.evidence_media_id && (
+                  <a
+                    className="mt-2 block text-blue-700 underline"
+                    href={`/api/v1/media/${o.pod.evidence_media_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View delivery photo
+                  </a>
+                )}
                 <p className="mt-1">
                   {o.pod.delivered_quantity} units · acknowledged by{" "}
                   {o.pod.recipient_name} ·{" "}
@@ -1402,6 +1480,7 @@ function PodForm({
   act: Act;
   busy: boolean;
 }) {
+  const [evidence, setEvidence] = useState<string | null>(null);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -1412,6 +1491,7 @@ function PodForm({
         acknowledgement: f.get("ack") === "on",
         exception: f.get("exception") || null,
         note: f.get("note"),
+        evidence_media_id: evidence,
       });
     } catch {}
   }
@@ -1420,6 +1500,21 @@ function PodForm({
       onSubmit={submit}
       className="mt-5 grid gap-4 rounded-xl border p-4 sm:grid-cols-2"
     >
+      <ImageUpload
+        path={`/api/v1/orders/${order.id}/evidence-image`}
+        label="Upload delivery photo"
+        onUploaded={(image) => setEvidence(image.id)}
+      />
+      {evidence && (
+        <a
+          className="text-sm text-blue-700 underline"
+          href={`/api/v1/media/${evidence}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          View attached delivery photo
+        </a>
+      )}
       <label className="label">
         {order.pod_history?.length
           ? "Total good units received across attempts"
@@ -1537,6 +1632,7 @@ function ProductForm({
   onDone,
 }: Common & { product: Product | null; onDone: () => void }) {
   const [error, setError] = useState("");
+  const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
   const client = useQueryClient();
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1547,7 +1643,7 @@ function ProductForm({
         description: f.get("description"),
         category: f.get("category"),
         pack: f.get("pack"),
-        image_url: f.get("image"),
+        image_url: imageUrl,
         product_url: f.get("public_url"),
         active: f.get("active") === "on",
         negotiation_floor_minor: f.get("floor")
@@ -1580,12 +1676,27 @@ function ProductForm({
         {product ? "Edit product" : "Add a catalog product"}
       </h3>
       <form onSubmit={submit} className="mt-4 grid gap-4 md:grid-cols-3">
+        {product ? (
+          <ImageUpload
+            path={`/api/v1/seller/products/${product.id}/image`}
+            label="Upload product photo"
+            onUploaded={(image) => {
+              setImageUrl(image.url);
+              client.invalidateQueries({ queryKey: ["workspace"] });
+            }}
+          />
+        ) : (
+          <p className="text-xs text-slate-500 md:col-span-2">
+            Save the product first to upload a photo, or provide a public HTTPS
+            image URL below.
+          </p>
+        )}
         {[
           ["title", "Product name", product?.title ?? ""],
           ["description", "Description", product?.description ?? ""],
           ["category", "Category", product?.category ?? "General"],
           ["pack", "Pack / specification", product?.pack ?? ""],
-          ["image", "Image URL (HTTPS, optional)", product?.image_url ?? ""],
+          ["image", "Image URL (HTTPS or uploaded image)", product?.image_url ?? ""],
           [
             "public_url",
             "Public product URL (HTTPS, optional)",
@@ -1609,7 +1720,13 @@ function ProductForm({
             <input
               className="field"
               name={String(name)}
-              defaultValue={value}
+              defaultValue={name === "image" ? undefined : value}
+              value={name === "image" ? imageUrl : undefined}
+              onChange={
+                name === "image"
+                  ? (e) => setImageUrl(e.target.value)
+                  : undefined
+              }
               type={
                 ["stock", "weight", "volume"].includes(String(name))
                   ? "number"
@@ -1880,73 +1997,7 @@ function Zones({ data, act, busy }: Common) {
 }
 
 function Settings({ data }: Common) {
-  const client = useQueryClient();
-  const [error, setError] = useState("");
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    try {
-      await request("/api/v1/me", {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: f.get("name"),
-          location: [Number(f.get("lon")), Number(f.get("lat"))],
-        }),
-      });
-      setError("Profile saved. Refresh to update the account header.");
-      await client.invalidateQueries({ queryKey: ["workspace"] });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    }
-  }
-  return (
-    <section className="card max-w-xl">
-      <h3 className="text-xl font-bold">Business & delivery profile</h3>
-      <form className="mt-5 space-y-4" onSubmit={submit}>
-        <label className="label block">
-          Business name
-          <input
-            className="field"
-            name="name"
-            defaultValue={data.user.name}
-            required
-          />
-        </label>
-        <label className="label block">
-          Longitude
-          <input
-            className="field"
-            type="number"
-            step="any"
-            name="lon"
-            defaultValue={data.user.location[0]}
-            required
-          />
-        </label>
-        <label className="label block">
-          Latitude
-          <input
-            className="field"
-            type="number"
-            step="any"
-            name="lat"
-            defaultValue={data.user.location[1]}
-            required
-          />
-        </label>
-        <p className="text-xs text-slate-500">
-          Active buying requests lock the delivery location until withdrawn or
-          completed.
-        </p>
-        {error && (
-          <p role="status" className="text-sm">
-            {error}
-          </p>
-        )}
-        <button className="btn-primary">Save profile</button>
-      </form>
-    </section>
-  );
+  return <BusinessProfile user={data.user} />;
 }
 
 function Operations({
@@ -2034,76 +2085,100 @@ function Operations({
         </section>
       )}
       {["users", "seller-verification"].includes(section) && (
-        <section className="card">
-          <h3 className="font-bold">Accounts & permissions</h3>
-          {data.people.map((p) => (
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 border-b py-4"
-              key={p.id}
-            >
-              <div>
-                <b>{p.name}</b>
-                <p className="text-xs text-slate-500">
-                  {p.email} · {p.roles.join(", ")}
-                </p>
-              </div>
-              {!p.verified && (
-                <button
-                  className="btn-secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    window.confirm(`Verify ${p.name}'s business?`) &&
-                    act(`/api/v1/admin/users/${p.id}/verify`).catch(() => {})
-                  }
-                >
-                  Verify business
-                </button>
-              )}
-              <select
-                aria-label={`Grant role to ${p.name}`}
-                className="field !mt-0 !w-auto"
-                value=""
-                disabled={busy || p.id === data.user.id}
-                onChange={(e) => {
-                  if (
-                    e.target.value &&
-                    window.confirm(
-                      `Grant ${e.target.value} access to ${p.name}?`,
-                    )
-                  )
-                    act(`/api/v1/admin/users/${p.id}/roles`, {
-                      role: e.target.value,
-                    }).catch(() => {});
-                }}
+        <>
+          {section === "seller-verification" && (
+            <SellerReviewQueue act={act} busy={busy} />
+          )}
+          <section className="card">
+            <h3 className="font-bold">Accounts & permissions</h3>
+            {data.people.map((p) => (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 border-b py-4"
+                key={p.id}
               >
-                <option value="">Grant role…</option>
-                {["RETAILER", "SELLER", "DRIVER", "ADMIN"].map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-              {p.id !== data.user.id &&
-                p.roles.map((role) => (
+                <div>
+                  <b>{p.name}</b>
+                  <p className="text-xs text-slate-500">
+                    {p.email} · {p.roles.join(", ")}
+                    {p.active === false && " · ACCOUNT DISABLED"}
+                  </p>
+                </div>
+                {p.id !== data.user.id && (
                   <button
                     className="btn-secondary"
-                    key={role}
                     disabled={busy}
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          `Remove ${role} access from ${p.name}? Existing sessions lose this permission immediately.`,
-                        )
-                      )
-                        act(`/api/v1/admin/users/${p.id}/roles/revoke`, {
-                          role,
+                      const reason = window.prompt(
+                        `Reason to ${p.active === false ? "reactivate" : "disable"} ${p.name}'s account (at least 5 characters):`,
+                      );
+                      if (reason && reason.trim().length >= 5)
+                        act(`/api/v1/admin/users/${p.id}/state`, {
+                          active: p.active === false,
+                          reason: reason.trim(),
                         }).catch(() => {});
                     }}
                   >
-                    Remove {role} from {p.name}
+                    {p.active === false ? "Reactivate" : "Disable"} {p.name}
                   </button>
-                ))}
-            </div>
-          ))}
-        </section>
+                )}
+                {!p.verified && (
+                  <button
+                    className="btn-secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      window.confirm(`Verify ${p.name}'s business?`) &&
+                      act(`/api/v1/admin/users/${p.id}/verify`).catch(() => {})
+                    }
+                  >
+                    Verify business
+                  </button>
+                )}
+                <select
+                  aria-label={`Grant role to ${p.name}`}
+                  className="field !mt-0 !w-auto"
+                  value=""
+                  disabled={busy || p.id === data.user.id}
+                  onChange={(e) => {
+                    if (
+                      e.target.value &&
+                      window.confirm(
+                        `Grant ${e.target.value} access to ${p.name}?`,
+                      )
+                    )
+                      act(`/api/v1/admin/users/${p.id}/roles`, {
+                        role: e.target.value,
+                      }).catch(() => {});
+                  }}
+                >
+                  <option value="">Grant role…</option>
+                  {["RETAILER", "SELLER", "DRIVER", "ADMIN"].map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
+                </select>
+                {p.id !== data.user.id &&
+                  p.roles.map((role) => (
+                    <button
+                      className="btn-secondary"
+                      key={role}
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Remove ${role} access from ${p.name}? Existing sessions lose this permission immediately.`,
+                          )
+                        )
+                          act(`/api/v1/admin/users/${p.id}/roles/revoke`, {
+                            role,
+                          }).catch(() => {});
+                      }}
+                    >
+                      Remove {role} from {p.name}
+                    </button>
+                  ))}
+              </div>
+            ))}
+          </section>
+        </>
       )}
       <section className="card">
         <h3 className="font-bold">Activity & audit trail</h3>

@@ -54,12 +54,16 @@ export type BuyingRequest = {
   quantity_min: number;
   quantity_max: number;
   ceiling_minor: number;
+  target_price_minor?: number | null;
   currency: string;
   status: string;
   note: string;
   substitute_product_ids?: string[];
 };
 export type Allocation = {
+  buyer_name?: string;
+  seller_name?: string;
+  target_price_minor?: number | null;
   product_snapshot?: {
     title: string;
     unit: string;
@@ -106,6 +110,7 @@ export type Pool = {
   vehicle_id?: string;
 };
 export type Order = Allocation & {
+  delivery_contact?: Record<string, string>;
   id: string;
   pool_id: string;
   seller_id: string;
@@ -131,6 +136,7 @@ export type Order = Allocation & {
     };
   }[];
   pod?: {
+    evidence_media_id?: string | null;
     delivered_quantity: number;
     recipient_name: string;
     exception: string | null;
