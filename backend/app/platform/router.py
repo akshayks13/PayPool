@@ -21,8 +21,9 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
-from app.platform import service
+from app.platform import payment_execution, service
 from app.platform.auth import (
     authenticate,
     check_origin,
@@ -244,11 +245,21 @@ def projection(tx, user, provider):
     admin = "ADMIN" in roles
     products = tx.all("products")
     zones = tx.all("zones")
-    visible_zones = (
-        zones
-        if admin or "SELLER" in roles
-        else [z for z in zones if service.inside_zone(user, z, tx)]
-    )
+    assigned_zone_ids = {
+        p["zone_id"] for p in tx.all("pools") if p.get("driver_id") == uid
+    }
+    visible_zones = [
+        z
+        for z in zones
+        if admin
+        or z["seller_id"] == uid
+        or (
+            "RETAILER" in roles
+            and z.get("active", True)
+            and service.inside_zone(user, z, tx)
+        )
+        or ("DRIVER" in roles and z["id"] in assigned_zone_ids)
+    ]
     pools = []
     orders = tx.all("orders")
     for p in tx.all("pools"):
@@ -318,7 +329,12 @@ def projection(tx, user, provider):
         for p in products
         if admin
         or p["seller_id"] == uid
-        or any(z["seller_id"] == p["seller_id"] for z in visible_zones)
+        or (
+            "RETAILER" in roles
+            and p.get("active", True)
+            and any(z["seller_id"] == p["seller_id"] for z in visible_zones)
+        )
+        or any(o["product_id"] == p["id"] for o in allowed_orders)
     ]
     return {
         "user": public_user(user),
@@ -386,6 +402,7 @@ def create_product(data: Product, user=Depends(current_user), store=Depends(stor
                 **data.model_dump(mode="json"),
                 "id": str(uuid4()),
                 "seller_id": user["id"],
+                "stock_updated_at": now(),
             },
         )
         tx.audit(user["id"], "PRODUCT_CREATED", item["id"])
@@ -412,6 +429,7 @@ def update_product(
                 **data.model_dump(mode="json"),
                 "id": item["id"],
                 "seller_id": item["seller_id"],
+                "stock_updated_at": now(),
             },
         )
 
@@ -426,6 +444,7 @@ def create_zone(data: Zone, user=Depends(current_user), store=Depends(store_for)
                 **data.model_dump(mode="json"),
                 "id": str(uuid4()),
                 "seller_id": user["id"],
+                "created_at": now(),
             },
         )
         tx.audit(user["id"], "ZONE_CREATED", zone["id"])
@@ -512,7 +531,8 @@ def discover(data: Discovery, user=Depends(current_user), store=Depends(store_fo
                 continue
             for zone in tx.all("zones"):
                 if (
-                    zone["seller_id"] != item["seller_id"]
+                    not zone.get("active", True)
+                    or zone["seller_id"] != item["seller_id"]
                     or zone.get("currency", "USD") != item["currency"]
                     or not service.inside_zone(user, zone, tx)
                 ):
@@ -665,10 +685,9 @@ def approve(
 def cancel(
     pool_id: str, request: Request, user=Depends(current_user), store=Depends(store_for)
 ):
-    with store.transaction() as tx:
-        return service.cancel_pool(
-            tx, user, service.must(tx, "pools", pool_id), request.app.state.payments
-        )
+    return payment_execution.cancel_pool(
+        store, user, pool_id, request.app.state.payments
+    )
 
 
 @router.post("/pools/{pool_id}/replan")
@@ -690,9 +709,17 @@ def replan(
             return service.must(tx, "pools", pool["replacement_pool_id"])
         if exclude_request_id and exclude_request_id not in pool["request_ids"]:
             raise HTTPException(422, "Excluded request does not belong to this pool")
-        pool = service.cancel_pool(tx, user, pool, request.app.state.payments)
-        if pool["status"] != "CANCELLED":
-            return pool
+    pool = payment_execution.cancel_pool(
+        store, user, pool_id, request.app.state.payments
+    )
+    if pool["status"] != "CANCELLED":
+        return pool
+    with store.transaction() as tx:
+        pool = service.must(tx, "pools", pool_id)
+        if pool.get("replacement_pool_id"):
+            if pool.get("excluded_request_id", "") != exclude_request_id:
+                raise HTTPException(409, "This pool was replanned with different terms")
+            return service.must(tx, "pools", pool["replacement_pool_id"])
         new = {
             k: pool[k] for k in ("seller_id", "zone_id", "dispatch_date", "currency")
         }
@@ -718,7 +745,18 @@ def replan(
         pool["excluded_request_id"] = exclude_request_id
         tx.put("pools", pool)
         if new["request_ids"]:
-            new = service.clear_pool(tx, user, new)
+            savepoint = tx.connection.begin_nested()
+            try:
+                new = service.clear_pool(tx, user, new)
+                savepoint.commit()
+            except (HTTPException, ValueError) as error:
+                savepoint.rollback()
+                new.update(
+                    status="FAILED",
+                    allocations=[],
+                    reason=str(getattr(error, "detail", error)),
+                )
+                tx.put("pools", new)
         tx.audit(user["id"], "POOL_REPLANNED", new["id"], {"previous_pool_id": pool_id})
         return new
 
@@ -731,38 +769,39 @@ def dispatch(
     user=Depends(current_user),
     store=Depends(store_for),
 ):
+    provider = request.app.state.payments
     with store.transaction() as tx:
         pool = service.must(tx, "pools", pool_id)
         service.seller_access(user, pool["seller_id"])
-        # A local AUTHORIZED label may be stale after expiration or a provider
-        # reversal. Verify every external authorization before sending goods.
-        provider = request.app.state.payments
-        failure = None
-        if provider.mode != "demo":
-            if pool["status"] != "CLEARED":
-                raise HTTPException(409, "Only a cleared pool can be dispatched")
-            if any(
-                not (tx.get("orders", a["order_id"]) or {}).get("payment_status")
-                == "AUTHORIZED"
-                for a in pool.get("allocations", [])
-            ):
-                raise HTTPException(409, "Every buyer must authorize before dispatch")
-            for allocation in pool.get("allocations", []):
-                order = service.must(tx, "orders", allocation["order_id"])
-                try:
-                    service.reconcile(tx, order, provider)
-                except PaymentError as error:
-                    failure = HTTPException(502, str(error))
-                    break
-        if not failure:
+        if pool["status"] != "CLEARED":
+            raise HTTPException(409, "Only a cleared pool can be dispatched")
+        order_ids = [a["order_id"] for a in pool.get("allocations", [])]
+        if any(
+            (tx.get("orders", key) or {}).get("payment_status") != "AUTHORIZED"
+            or (tx.get("orders", key) or {}).get("payment_operation_id")
+            for key in order_ids
+        ):
+            raise HTTPException(
+                409, "Every buyer must finish authorization before dispatch"
+            )
+    if provider.mode != "demo":
+        for key in order_ids:
             try:
-                result = service.dispatch(tx, user, pool, data.driver_id)
-            except HTTPException as error:
-                failure = error
-    # Preserve refreshed external statuses even when dispatch is refused.
-    if failure:
-        raise failure
-    return result
+                payment_execution.reconcile(store, user, key, provider)
+            except PaymentError as error:
+                raise HTTPException(502, str(error))
+    with store.transaction() as tx:
+        pool = service.must(tx, "pools", pool_id)
+        if (
+            provider.mode != "demo"
+            and not data.vehicle_id
+            and all(
+                service.must(tx, "orders", key)["payment_status"] == "AUTHORIZED"
+                for key in order_ids
+            )
+        ):
+            raise HTTPException(422, "Assign a fleet vehicle before live dispatch")
+        return service.dispatch(tx, user, pool, data.driver_id, data.vehicle_id)
 
 
 @router.post("/orders/{order_id}/checkout")
@@ -774,15 +813,16 @@ def checkout(
 ):
     with store.transaction() as tx:
         order = service.must(tx, "orders", order_id)
+        service.order_access(tx, user, order)
         if request.app.state.payments.mode == "paypal_sandbox" and order[
             "seller_id"
         ] != os.getenv("PAYPAL_SELLER_ID", "seller-demo"):
             raise HTTPException(
                 409, "This distributor is not connected to the sandbox merchant account"
             )
-        return service.payment_action(
-            tx, user, order, request.app.state.payments, "checkout"
-        )
+    return payment_execution.execute(
+        store, user, order_id, request.app.state.payments, "checkout"
+    )
 
 
 @router.post("/orders/{order_id}/authorize")
@@ -792,14 +832,9 @@ def authorize(
     user=Depends(current_user),
     store=Depends(store_for),
 ):
-    with store.transaction() as tx:
-        return service.payment_action(
-            tx,
-            user,
-            service.must(tx, "orders", order_id),
-            request.app.state.payments,
-            "authorize",
-        )
+    return payment_execution.execute(
+        store, user, order_id, request.app.state.payments, "authorize"
+    )
 
 
 @router.post("/orders/{order_id}/reconcile")
@@ -809,13 +844,12 @@ def reconcile(
     user=Depends(current_user),
     store=Depends(store_for),
 ):
-    with store.transaction() as tx:
-        order = service.must(tx, "orders", order_id)
-        service.order_access(tx, user, order)
-        try:
-            return service.reconcile(tx, order, request.app.state.payments)
-        except PaymentError as error:
-            raise HTTPException(502, str(error))
+    try:
+        return payment_execution.reconcile(
+            store, user, order_id, request.app.state.payments
+        )
+    except PaymentError as error:
+        raise HTTPException(502, str(error))
 
 
 @router.post("/orders/{order_id}/pod")
@@ -827,13 +861,19 @@ def pod(
     store=Depends(store_for),
 ):
     with store.transaction() as tx:
-        return service.delivery(
+        order = service.delivery(
             tx,
             user,
             service.must(tx, "orders", order_id),
             data.model_dump(mode="json"),
             request.app.state.payments,
+            defer_capture=True,
         )
+    if order.get("capture_requested"):
+        return payment_execution.execute(
+            store, user, order_id, request.app.state.payments, "capture"
+        )
+    return order
 
 
 @router.post("/orders/{order_id}/capture")
@@ -843,14 +883,9 @@ def capture(
     user=Depends(current_user),
     store=Depends(store_for),
 ):
-    with store.transaction() as tx:
-        return service.payment_action(
-            tx,
-            user,
-            service.must(tx, "orders", order_id),
-            request.app.state.payments,
-            "capture",
-        )
+    return payment_execution.execute(
+        store, user, order_id, request.app.state.payments, "capture"
+    )
 
 
 @router.get("/orders/{order_id}/receipt")
@@ -869,60 +904,14 @@ def refund(
     user=Depends(current_user),
     store=Depends(store_for),
 ):
-    operation = request.headers.get("Idempotency-Key", "")
-    if not 8 <= len(operation) <= 100:
-        raise HTTPException(422, "Provide an Idempotency-Key of 8–100 characters")
-    key = sha_key(order_id + ":" + operation)
-    with store.transaction() as tx:
-        order = service.must(tx, "orders", order_id)
-        service.seller_access(user, order["seller_id"])
-        previous = tx.get("refunds", key)
-        if previous:
-            if (
-                previous["amount_minor"] != data.amount_minor
-                or previous["reason"] != data.reason
-            ):
-                raise HTTPException(
-                    409, "This idempotency key belongs to different refund terms"
-                )
-            return previous
-        if order["payment_status"] not in {"CAPTURED", "PARTIALLY_REFUNDED"}:
-            raise HTTPException(409, "A confirmed capture is required")
-        if data.amount_minor > order["total_minor"] - order["refunded_minor"]:
-            raise HTTPException(409, "Refund exceeds the remaining captured amount")
-        record = {
-            "id": key,
-            "order_id": order_id,
-            **data.model_dump(),
-            "created_at": now(),
-            "status": "PENDING",
-        }
-        try:
-            remote = request.app.state.payments.refund(
-                order, data.amount_minor, "refund:" + key
-            )
-            record.update(provider_refund_id=remote["id"], status=remote["status"])
-            if remote["status"] == "COMPLETED":
-                order["refunded_minor"] += data.amount_minor
-                order["payment_status"] = (
-                    "REFUNDED"
-                    if order["refunded_minor"] == order["total_minor"]
-                    else "PARTIALLY_REFUNDED"
-                )
-            else:
-                order["payment_status"] = "REFUND_PENDING"
-        except PaymentError as error:
-            record.update(status="REQUIRES_RECONCILIATION", error=str(error))
-            order["payment_status"] = "REQUIRES_RECONCILIATION"
-        tx.put("orders", order)
-        tx.put("refunds", record)
-        tx.audit(
-            user["id"],
-            "REFUND_REQUESTED",
-            order_id,
-            {"refund_id": key, "amount_minor": data.amount_minor},
-        )
-        return record
+    return payment_execution.refund(
+        store,
+        user,
+        order_id,
+        data,
+        request.headers.get("Idempotency-Key", ""),
+        request.app.state.payments,
+    )
 
 
 def sha_key(value):
@@ -941,22 +930,46 @@ async def webhook(request: Request, store=Depends(store_for)):
         raise HTTPException(400, "Malformed webhook")
     provider = request.app.state.payments
     try:
-        provider.verify_webhook(request.headers, event)
+        await run_in_threadpool(provider.verify_webhook, request.headers, event)
     except PaymentError as error:
         raise HTTPException(400, str(error))
+    matched_id = await run_in_threadpool(record_verified_event, store, event)
+    if matched_id == "duplicate":
+        return {"duplicate": True}
+    if matched_id:
+        with store.transaction() as tx:
+            order = service.must(tx, "orders", matched_id)
+            actor = service.must(tx, "users", order["seller_id"])
+        try:
+            await run_in_threadpool(
+                payment_execution.reconcile, store, actor, matched_id, provider
+            )
+            with store.transaction() as tx:
+                saved = service.must(tx, "payment_events", event["id"])
+                saved["status"] = "PROCESSED"
+                tx.put("payment_events", saved)
+        except (PaymentError, HTTPException):
+            # The verified event is durable. The worker retries reconciliation
+            # after an in-flight operation completes or the provider recovers.
+            pass
+    return {"received": True}
+
+
+def record_verified_event(store, event):
     with store.transaction() as tx:
-        if tx.get("payment_events", event["id"]):
-            return {"duplicate": True}
+        previous = tx.get("payment_events", event["id"])
+        if previous and previous.get("status") in {"PROCESSED", "IGNORED"}:
+            return "duplicate"
         resource = event.get("resource", {})
         related = resource.get("supplementary_data", {}).get("related_ids", {})
         identifiers = {
             str(v)
-            for v in [
+            for v in (
                 resource.get("id"),
                 related.get("order_id"),
                 related.get("capture_id"),
                 related.get("authorization_id"),
-            ]
+            )
             if v
         }
         matched = next(
@@ -974,21 +987,39 @@ async def webhook(request: Request, store=Depends(store_for)):
             None,
         )
         if matched:
-            # A verified capture webhook supplies the identifier that can be
-            # missing after a timed-out capture response. Re-fetch its state
-            # from PayPal instead of trusting webhook arrival order.
-            if event.get("event_type", "").startswith("PAYMENT.CAPTURE."):
-                capture_id = related.get("capture_id") or (
-                    resource.get("id")
-                    if event["event_type"] != "PAYMENT.CAPTURE.REFUNDED"
-                    else None
-                )
+            if (
+                event.get("event_type", "").startswith("PAYMENT.CAPTURE.")
+                and event["event_type"] != "PAYMENT.CAPTURE.REFUNDED"
+            ):
+                capture_id = related.get("capture_id") or resource.get("id")
                 if capture_id:
                     matched["capture_id"] = capture_id
-            try:
-                service.reconcile(tx, matched, provider)
-            except PaymentError as error:
-                raise HTTPException(503, str(error))
+                    tx.put("orders", matched)
+            if event.get("event_type") == "PAYMENT.CAPTURE.REFUNDED":
+                from app.platform.payments import amount
+
+                pending = [
+                    r
+                    for r in tx.all("refunds")
+                    if r["order_id"] == matched["id"]
+                    and not r.get("provider_refund_id")
+                    and r["status"] in {"PENDING", "REQUIRES_RECONCILIATION"}
+                    and resource.get("amount")
+                    == {
+                        "currency_code": matched["currency"],
+                        "value": amount(r["amount_minor"]),
+                    }
+                ]
+                if len(pending) == 1 and resource.get("id"):
+                    pending[0]["provider_refund_id"] = resource["id"]
+                    tx.put("refunds", pending[0])
+            if not previous:
+                tx.audit(
+                    matched["seller_id"],
+                    "PROVIDER_EVENT_VERIFIED",
+                    matched["id"],
+                    {"event_id": event["id"]},
+                )
         tx.put(
             "payment_events",
             {
@@ -996,9 +1027,10 @@ async def webhook(request: Request, store=Depends(store_for)):
                 "type": event.get("event_type"),
                 "received_at": now(),
                 "order_id": matched["id"] if matched else None,
+                "status": "PENDING" if matched else "IGNORED",
             },
         )
-    return {"received": True}
+        return matched["id"] if matched else None
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -1077,6 +1109,16 @@ async def preview(
                 )
                 item = Product(
                     title=title,
+                    description=str(row.get("description") or ""),
+                    category=str(row.get("category") or "General"),
+                    pack=str(row.get("pack") or ""),
+                    image_url=str(row.get("image_url") or ""),
+                    product_url=str(row.get("product_url") or ""),
+                    attributes={
+                        key: str(row[key])
+                        for key in ("brand", "variety", "size", "material")
+                        if row.get(key)
+                    },
                     unit=row.get("unit") or "kg",
                     currency=str(row.get("currency") or "USD").upper(),
                     stock=int(row.get("stock") or row.get("stock_quantity") or 0),
@@ -1128,7 +1170,12 @@ def commit_import(import_id: str, user=Depends(current_user), store=Depends(stor
             ids.append(
                 tx.put(
                     "products",
-                    {**data, "id": str(uuid4()), "seller_id": batch["seller_id"]},
+                    {
+                        **data,
+                        "id": str(uuid4()),
+                        "seller_id": batch["seller_id"],
+                        "stock_updated_at": now(),
+                    },
                 )["id"]
             )
         batch.update(status="IMPORTED", product_ids=ids)

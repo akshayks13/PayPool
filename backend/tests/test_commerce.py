@@ -506,7 +506,13 @@ def test_verified_webhooks_deduplicate_and_use_current_provider_state(app, monke
                 {
                     "amount": {"currency_code": "USD", "value": "48.00"},
                     "payments": {
-                        "captures": [{"id": "TRUSTED-CAPTURE", "status": "COMPLETED"}]
+                        "captures": [
+                            {
+                                "id": "TRUSTED-CAPTURE",
+                                "status": "COMPLETED",
+                                "amount": {"currency_code": "USD", "value": "48.00"},
+                            }
+                        ]
                     },
                 }
             ],

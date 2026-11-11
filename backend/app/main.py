@@ -3,12 +3,17 @@ import os
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.modules.negotiation.agent_router import router as agent_router
 from app.modules.negotiation.demo_router import router as demo_router
 from app.modules.negotiation.procurement_router import router as procurement_router
 from app.modules.negotiation.router import router as negotiation_router
+from app.platform.acp import VERSION as ACP_VERSION
+from app.platform.acp import ProtocolError
+from app.platform.acp import router as acp_router
 from app.platform.auth import current_user
+from app.platform.features_router import router as features_router
 from app.platform.payments import Payments
 from app.platform.router import router as platform_router
 from app.platform.seed import seed
@@ -22,7 +27,7 @@ load_dotenv()
 def create_app(database_url: str | None = None, demo: bool | None = None) -> FastAPI:
     app = FastAPI(
         title="PayPool API",
-        version="0.1.0",
+        version="0.2.0",
         description="PayPool modular-monolith API.",
     )
     app.state.demo = (
@@ -57,6 +62,24 @@ def create_app(database_url: str | None = None, demo: bool | None = None) -> Fas
         app.include_router(negotiation_router, prefix="/api/v1")
         app.include_router(demo_router, prefix="/api/v1")
         app.include_router(agent_router, prefix="/api/v1")
+    else:
+        app.include_router(features_router)
+        app.include_router(acp_router)
+
+    @app.exception_handler(ProtocolError)
+    async def protocol_error(request, error):
+        return JSONResponse(
+            {
+                "type": "service_unavailable"
+                if error.status >= 500
+                else "invalid_request",
+                "code": error.code,
+                "message": error.message,
+            },
+            status_code=error.status,
+            headers={"API-Version": ACP_VERSION, "Cache-Control": "no-store"},
+        )
+
     app.include_router(
         procurement_router,
         prefix="/api/v1",

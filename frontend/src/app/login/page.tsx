@@ -34,7 +34,9 @@ export default function LoginPage() {
     setError("");
     try {
       const user = await signIn(email, password);
-      router.push(`/${user.roles[0].toLowerCase()}`);
+      router.push(
+        user.roles.length ? `/${user.roles[0].toLowerCase()}` : "/onboarding",
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in failed");
     } finally {

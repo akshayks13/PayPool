@@ -2,8 +2,9 @@
 
 Freight ratios and volume-tier prices are nonlinear in membership. Enumerate
 small feasible manifests first, then use CP-SAT to select the best manifest.
-Quantity choices are the buyer's min/max and seller tier breakpoints, not an
-unsubstantiated full nonlinear MILP. Large searches fail explicitly.
+Every whole quantity in the approved interval is searched within an explicit
+candidate budget. Large searches fail explicitly, rather than incorrectly
+declaring an unsampled interior quantity infeasible.
 """
 
 from fractions import Fraction
@@ -57,6 +58,29 @@ def evaluate(plan, zone, products, available):
         return None
     demand = {}
     for r, sku, qty in plan:
+        terms = r.get("negotiated_terms")
+        permitted = (
+            [terms["product_id"]]
+            if terms
+            else [r["product_id"], *r.get("substitute_product_ids", [])]
+        )
+        lower = (
+            max(r["quantity_min"], terms["quantity_min"])
+            if terms
+            else r["quantity_min"]
+        )
+        upper = (
+            min(r["quantity_max"], terms["quantity_max"])
+            if terms
+            else r["quantity_max"]
+        )
+        if (
+            sku not in permitted
+            or not lower <= qty <= upper
+            or products[sku]["seller_id"] != zone["seller_id"]
+            or products[sku]["currency"] != r["currency"]
+        ):
+            return None
         demand[sku] = demand.get(sku, 0) + qty
     if any(q > available.get(sku, 0) for sku, q in demand.items()):
         return None
@@ -67,8 +91,10 @@ def evaluate(plan, zone, products, available):
         or sum(volumes) > zone["max_volume_cm3"]
     ):
         return None
+    alpha = Fraction(zone.get("freight_weight_percent", 50), 100)
     footprints = [
-        Fraction(w, zone["max_weight_grams"]) + Fraction(v, zone["max_volume_cm3"])
+        alpha * Fraction(w, zone["max_weight_grams"])
+        + (1 - alpha) * Fraction(v, zone["max_volume_cm3"])
         for w, v in zip(weights, volumes)
     ]
     freight = zone["base_freight_minor"] + zone["stop_fee_minor"] * len(plan)
@@ -76,6 +102,8 @@ def evaluate(plan, zone, products, available):
     allocations = []
     for (r, sku, qty), share in zip(plan, shares):
         unit = tier_price(products[sku], demand[sku])
+        if r.get("negotiated_terms"):
+            unit = min(unit, r["negotiated_terms"]["unit_price_minor"])
         total = unit * qty + share
         if total > r["ceiling_minor"] * qty:
             return None
@@ -110,15 +138,26 @@ def solve(requests, zone, products, users, available):
             choices.append([None])
             continue
         options = [None]
-        for sku in [r["product_id"], *r.get("substitute_product_ids", [])]:
-            item = products[sku]
-            quantities = {r["quantity_min"], r["quantity_max"]}
-            quantities.update(
-                t["minimum_quantity"]
-                for t in item["tiers"]
-                if r["quantity_min"] <= t["minimum_quantity"] <= r["quantity_max"]
-            )
-            options.extend((r, sku, q) for q in sorted(quantities))
+        terms = r.get("negotiated_terms")
+        skus = (
+            [terms["product_id"]]
+            if terms
+            else [r["product_id"], *r.get("substitute_product_ids", [])]
+        )
+        lower = (
+            max(r["quantity_min"], terms["quantity_min"])
+            if terms
+            else r["quantity_min"]
+        )
+        upper = (
+            min(r["quantity_max"], terms["quantity_max"])
+            if terms
+            else r["quantity_max"]
+        )
+        for sku in skus:
+            if not products[sku].get("active", True):
+                continue
+            options.extend((r, sku, q) for q in range(lower, upper + 1))
         choices.append(options)
     count = 1
     for c in choices:

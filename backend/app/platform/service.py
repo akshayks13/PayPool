@@ -1,13 +1,15 @@
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 from hashlib import sha256
 from uuid import NAMESPACE_URL, uuid4, uuid5
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 
 from app.platform import clearing
 from app.platform.auth import require_role
 from app.platform.payments import PaymentError
+from app.platform.schedules import approval_deadline, cutoff_for, cutoff_passed
 from app.platform.store import now
 
 
@@ -38,6 +40,8 @@ def order_access(tx, user, order):
 def available_stock(tx, exclude_pool=None):
     stock = {p["id"]: p["stock"] for p in tx.all("products")}
     for pool in tx.all("pools"):
+        if pool.get("stock_committed"):
+            continue
         if pool["id"] == exclude_pool or pool["status"] not in {
             "CLEARED",
             "DISPATCHED",
@@ -59,6 +63,8 @@ def submit_request(tx, user, data):
         must(tx, "products", data["product_id"]),
         must(tx, "zones", data["zone_id"]),
     )
+    if not item.get("active", True) or not zone.get("active", True):
+        raise HTTPException(422, "The product or delivery area is inactive")
     if not inside_zone(user, zone, tx) or item["seller_id"] != zone["seller_id"]:
         raise HTTPException(
             422, "This product cannot be delivered to your location by this distributor"
@@ -71,8 +77,20 @@ def submit_request(tx, user, data):
         raise HTTPException(
             409, "Distributor must be verified before accepting requests"
         )
-    if date.fromisoformat(data["dispatch_date"]) < date.today():
+    if (
+        date.fromisoformat(data["dispatch_date"])
+        < datetime.now(ZoneInfo(zone.get("timezone", "Asia/Kolkata"))).date()
+    ):
         raise HTTPException(422, "Delivery date is in the past")
+    if date.fromisoformat(data["dispatch_date"]).weekday() not in zone.get(
+        "weekdays", list(range(7))
+    ):
+        raise HTTPException(
+            422, "This distributor does not run this zone on that weekday"
+        )
+    cutoff = cutoff_for(zone, data["dispatch_date"])
+    if cutoff_passed({"cutoff_at": cutoff}):
+        raise HTTPException(409, "The buying cutoff for this delivery run has passed")
     for sku in data.get("substitute_product_ids", []):
         alt = must(tx, "products", sku)
         if (
@@ -83,7 +101,13 @@ def submit_request(tx, user, data):
             raise HTTPException(
                 422, "Substitutes must use the same distributor, currency and unit"
             )
-        for attr in ("variety", "size", "material"):
+        if item.get("pack", "") != alt.get("pack", ""):
+            raise HTTPException(
+                422, "A substitute must preserve the approved pack size"
+            )
+        for attr in (
+            set(item.get("attributes", {})) | set(alt.get("attributes", {}))
+        ) - {"brand"}:
             if item.get("attributes", {}).get(attr) != alt.get("attributes", {}).get(
                 attr
             ):
@@ -110,6 +134,8 @@ def submit_request(tx, user, data):
             "currency": item["currency"],
             "status": "ACCUMULATING",
             "version": 0,
+            "cutoff_at": cutoff,
+            "delivery_window": zone.get("delivery_window", "09:00–18:00"),
             "request_ids": [],
             "allocations": [],
             "created_at": now(),
@@ -156,13 +182,20 @@ def inside_zone(user, zone, tx=None):
 
 def clear_pool(tx, user, pool):
     seller_access(user, pool["seller_id"])
-    if pool["status"] not in {"ACCUMULATING", "FAILED"}:
+    if pool["status"] not in {"ACCUMULATING", "FAILED", "LOCKED"}:
         raise HTTPException(409, "Only accumulating or infeasible pools can be cleared")
     requests = [must(tx, "requests", key) for key in pool["request_ids"]]
     requests = [r for r in requests if r["status"] == "ACTIVE"]
     if not requests:
         raise HTTPException(409, "No active requests in this delivery pool")
     zone = must(tx, "zones", pool["zone_id"])
+    if pool["status"] != "LOCKED":
+        pool["status"] = "LOCKED"
+        pool["locked_at"] = now()
+        tx.put("pools", pool)
+        tx.audit(user["id"], "POOL_LOCKED", pool["id"])
+    pool["status"] = "OPTIMIZING"
+    tx.put("pools", pool)
     products = {p["id"]: p for p in tx.all("products")}
     for buying_request in requests:
         for sku, specification in buying_request.get(
@@ -172,6 +205,16 @@ def clear_pool(tx, user, pool):
                 raise HTTPException(
                     409,
                     "Catalog specifications changed after this request; the buyer must review and submit a new request",
+                )
+        if buying_request.get("accepted_offer_id"):
+            offer = must(tx, "offers", buying_request["accepted_offer_id"])
+
+            if offer["status"] != "ACCEPTED" or datetime.fromisoformat(
+                offer["expires_at"]
+            ) <= datetime.now(UTC):
+                raise HTTPException(
+                    409,
+                    "An accepted offer expired; obtain fresh agreement before clearing",
                 )
     users = {u["id"]: u for u in tx.all("users")}
     result = clearing.solve(
@@ -186,9 +229,22 @@ def clear_pool(tx, user, pool):
             reason="No manifest satisfies stock, route capacity, minimum route weight and every buyer's delivered-price ceiling",
         )
     else:
+        pool["approval_expires_at"] = approval_deadline(zone, pool["dispatch_date"])
+        if datetime.fromisoformat(pool["approval_expires_at"]) <= datetime.now(UTC):
+            raise HTTPException(
+                409, "The agreed delivery day passed; request fresh buyer requirements"
+            )
         for allocation in result["allocations"]:
             allocation["product_snapshot"] = product_specification(
                 products[allocation["product_id"]]
+            )
+            allocation["delivery_location"] = list(
+                users[allocation["buyer_id"]]["location"]
+            )
+            allocation["buyer_name"] = users[allocation["buyer_id"]]["name"]
+            allocation["seller_name"] = users[pool["seller_id"]]["name"]
+            allocation["recipient_confirmation_required"] = zone.get(
+                "recipient_confirmation_required", False
             )
         pool.update(result)
         pool["status"] = "CLEARED"
@@ -196,22 +252,38 @@ def clear_pool(tx, user, pool):
             "Independent price, stock and freight checks passed. Each buyer must now approve this exact version."
         )
         pool["route"] = clearing.route_order(zone["depot"], pool["allocations"], users)
-        snapshot = {
-            "pool": pool["id"],
-            "version": pool["version"],
-            "allocations": pool["allocations"],
-            "date": pool["dispatch_date"],
-        }
-        pool["agreement_hash"] = sha256(
-            json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
         for a in pool["allocations"]:
             a["order_id"] = str(
                 uuid5(
                     NAMESPACE_URL, f"{pool['id']}:{pool['version']}:{a['request_id']}"
                 )
             )
+        pool["zone_snapshot"] = dict(zone)
+        snapshot = {
+            "pool": pool["id"],
+            "version": pool["version"],
+            "allocations": pool["allocations"],
+            "date": pool["dispatch_date"],
+            "delivery_window": pool.get(
+                "delivery_window", zone.get("delivery_window", "09:00–18:00")
+            ),
+            "approval_expires_at": pool["approval_expires_at"],
+            "zone": pool["zone_snapshot"],
+        }
+        pool["agreement_hash"] = sha256(
+            json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
     tx.put("pools", pool)
+    tx.put(
+        "allocation_snapshots",
+        {
+            "id": f"{pool['id']}:{pool['version']}",
+            "pool_id": pool["id"],
+            "version": pool["version"],
+            "snapshot": dict(pool),
+            "created_at": now(),
+        },
+    )
     tx.audit(
         user["id"],
         "POOL_" + pool["status"],
@@ -223,6 +295,10 @@ def clear_pool(tx, user, pool):
 
 def approve(tx, user, pool, version):
     require_role(user, "RETAILER")
+    if pool.get("approval_expires_at") and datetime.fromisoformat(
+        pool["approval_expires_at"]
+    ) <= datetime.now(UTC):
+        raise HTTPException(409, "This final quote expired; request a fresh agreement")
     if pool["status"] != "CLEARED" or pool["version"] != version:
         raise HTTPException(
             409, "This quote is stale or unavailable; review the current pool"
@@ -259,10 +335,22 @@ def approve(tx, user, pool, version):
     return order
 
 
-def payment_action(tx, user, order, payments, action):
+def payment_action(tx, user, order, payments, action, settling_operation=False):
     order_access(tx, user, order)
+    if order.get("payment_operation_id") and not settling_operation:
+        raise HTTPException(
+            409, "A payment operation is in progress; reconcile before continuing"
+        )
     pool = must(tx, "pools", order["pool_id"])
     if action in {"checkout", "authorize"}:
+        if (
+            not settling_operation
+            and pool.get("approval_expires_at")
+            and datetime.fromisoformat(pool["approval_expires_at"]) <= datetime.now(UTC)
+        ):
+            raise HTTPException(
+                409, "The approved quote expired; reconcile and obtain fresh agreement"
+            )
         if user["id"] != order["buyer_id"]:
             raise HTTPException(403, "Only the buyer can approve payment")
         if (
@@ -284,7 +372,12 @@ def payment_action(tx, user, order, payments, action):
     if action == "capture":
         if status == "CAPTURED":
             return order
-        require_role(user, "DRIVER", "SELLER", "ADMIN")
+        if not (user["id"] == order["buyer_id"] and order.get("buyer_confirmed_at")):
+            require_role(user, "DRIVER", "SELLER", "ADMIN")
+        if (
+            order.get("recipient_confirmation_required") or payments.mode != "demo"
+        ) and not order.get("buyer_confirmed_at"):
+            raise HTTPException(409, "The buyer must confirm receipt before capture")
         if (
             not order.get("pod")
             or order["pod"].get("exception")
@@ -309,6 +402,10 @@ def payment_action(tx, user, order, payments, action):
             if order.get("provider_order_id"):
                 return order
             remote = payments.create(order)
+            if not isinstance(remote.get("id"), str) or not remote["id"]:
+                raise PaymentError(
+                    "Provider order reference is missing; reconcile before continuing"
+                )
             order.update(provider_order_id=remote["id"], payment_status="CREATED")
             order["approval_url"] = next(
                 (
@@ -320,6 +417,10 @@ def payment_action(tx, user, order, payments, action):
             )
         elif action == "authorize":
             remote = payments.authorize(order)
+            if not isinstance(remote.get("id"), str) or not remote["id"]:
+                raise PaymentError(
+                    "Provider authorization reference is missing; reconcile before continuing"
+                )
             order.update(
                 authorization_id=remote["id"],
                 payment_status="AUTHORIZED",
@@ -327,6 +428,20 @@ def payment_action(tx, user, order, payments, action):
             )
         elif action == "capture":
             remote = payments.capture(order)
+            if not isinstance(remote.get("id"), str) or not remote["id"]:
+                raise PaymentError(
+                    "Provider capture reference is missing; reconcile before continuing"
+                )
+            if payments.mode != "demo":
+                from app.platform.payments import amount
+
+                if remote.get("amount") != {
+                    "currency_code": order["currency"],
+                    "value": amount(order["total_minor"]),
+                }:
+                    raise PaymentError(
+                        "Capture amount does not match the approved allocation"
+                    )
             order["capture_id"] = remote["id"]
             order["payment_status"] = (
                 "CAPTURED" if remote["status"] == "COMPLETED" else "CAPTURE_PENDING"
@@ -336,16 +451,24 @@ def payment_action(tx, user, order, payments, action):
                 payments.void(order)
             order.update(payment_status="VOIDED", status="CANCELLED")
         order.pop("payment_error", None)
-    except PaymentError as error:
+    except (PaymentError, KeyError, TypeError) as error:
         order["payment_status"] = "REQUIRES_RECONCILIATION"
-        order["payment_error"] = str(error)
+        order["payment_error"] = (
+            str(error)
+            if isinstance(error, PaymentError)
+            else "Provider response lacked required fields; reconcile before continuing"
+        )
         order["uncertain_action"] = action
     tx.put("orders", order)
     tx.audit(
         user["id"],
         "PAYMENT_" + action.upper(),
         order["id"],
-        {"state": order["payment_status"], "provider": payments.mode},
+        {
+            "state": order["payment_status"],
+            "provider": payments.mode,
+            "amount_minor": order["total_minor"],
+        },
     )
     return order
 
@@ -359,6 +482,10 @@ def reconcile(tx, order, payments):
         remote = payments.create(order)
         order["provider_order_id"] = remote["id"]
     remote = payments.call("GET", "/v2/checkout/orders/" + order["provider_order_id"])
+    if len(remote.get("purchase_units", [])) != 1 or (
+        remote.get("id") and remote["id"] != order["provider_order_id"]
+    ):
+        raise PaymentError("Remote order identity does not match this allocation")
     unit = remote["purchase_units"][0]
     from app.platform.payments import amount
 
@@ -372,6 +499,13 @@ def reconcile(tx, order, payments):
     auths = details.get("authorizations", [])
     if not captures and auths:
         auth = payments.call("GET", "/v2/payments/authorizations/" + auths[0]["id"])
+        if auth.get("status") in {"CREATED", "AUTHORIZED"} and auth.get("amount") != {
+            "currency_code": order["currency"],
+            "value": amount(order["total_minor"]),
+        }:
+            raise PaymentError(
+                "Authorized amount does not match the buyer-approved total"
+            )
         order["authorization_id"] = auth["id"]
         # Capture IDs may not be embedded in the order after a separate
         # Payments API capture. Follow only the known PayPal capture relation.
@@ -388,7 +522,25 @@ def reconcile(tx, order, payments):
                 "EXPIRED": "EXPIRED",
             }.get(auth["status"], "REQUIRES_RECONCILIATION")
     if captures:
-        capture = captures[0]
+        confirmed_captures = [
+            c
+            for c in captures
+            if c.get("status") in {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
+        ]
+        if len(confirmed_captures) > 1:
+            raise PaymentError(
+                "Multiple captures require explicit reconciliation; automatic matching is disabled"
+            )
+        capture = confirmed_captures[0] if confirmed_captures else captures[0]
+        if not isinstance(capture.get("id"), str) or not capture["id"]:
+            raise PaymentError("Capture reference is missing")
+        if capture.get("amount") != {
+            "currency_code": order["currency"],
+            "value": amount(order["total_minor"]),
+        }:
+            raise PaymentError(
+                "Captured amount differs from the approved full-order total"
+            )
         order["capture_id"] = capture["id"]
         order["payment_status"] = {
             "COMPLETED": "CAPTURED",
@@ -396,8 +548,17 @@ def reconcile(tx, order, payments):
             "PARTIALLY_REFUNDED": "PARTIALLY_REFUNDED",
             "PENDING": "CAPTURE_PENDING",
         }.get(capture["status"], "REQUIRES_RECONCILIATION")
+        if capture["status"] == "REFUNDED":
+            order["refunded_minor"] = order["total_minor"]
     elif not auths:
-        order["payment_status"] = "CREATED"
+        order["payment_status"] = (
+            "CREATED"
+            if remote.get("status")
+            in {"CREATED", "SAVED", "APPROVED", "PAYER_ACTION_REQUIRED"}
+            else "VOIDED"
+            if remote.get("status") == "VOIDED"
+            else "REQUIRES_RECONCILIATION"
+        )
     for refund in tx.all("refunds"):
         if (
             refund["order_id"] == order["id"]
@@ -412,11 +573,16 @@ def reconcile(tx, order, payments):
     refunds = [r for r in tx.all("refunds") if r["order_id"] == order["id"]]
     confirmed = sum(r["amount_minor"] for r in refunds if r["status"] == "COMPLETED")
     order["refunded_minor"] = max(order.get("refunded_minor", 0), confirmed)
-    if confirmed and order["payment_status"] in {
-        "CAPTURED",
-        "PARTIALLY_REFUNDED",
-        "REFUNDED",
-    }:
+    if (
+        confirmed
+        and order["refunded_minor"] < order["total_minor"]
+        and order["payment_status"]
+        in {
+            "CAPTURED",
+            "PARTIALLY_REFUNDED",
+            "REFUNDED",
+        }
+    ):
         order["payment_status"] = (
             "REFUNDED" if confirmed == order["total_minor"] else "PARTIALLY_REFUNDED"
         )
@@ -438,7 +604,8 @@ def cancel_pool(tx, user, pool, payments):
         )
     orders = [o for o in tx.all("orders") if o["pool_id"] == pool["id"]]
     if any(
-        o["payment_status"] not in {"NOT_STARTED", "CREATED", "AUTHORIZED", "VOIDED"}
+        o.get("payment_operation_id")
+        or o["payment_status"] not in {"NOT_STARTED", "CREATED", "AUTHORIZED", "VOIDED"}
         for o in orders
     ):
         raise HTTPException(
@@ -459,11 +626,39 @@ def cancel_pool(tx, user, pool, payments):
     return pool
 
 
-def dispatch(tx, user, pool, driver_id):
+def dispatch(tx, user, pool, driver_id, vehicle_id=None):
     seller_access(user, pool["seller_id"])
     if pool["status"] != "CLEARED":
         raise HTTPException(409, "Only a cleared delivery pool can be dispatched")
     driver = must(tx, "users", driver_id)
+    if any(
+        p["id"] != pool["id"]
+        and p["status"] == "DISPATCHED"
+        and p.get("driver_id") == driver_id
+        for p in tx.all("pools")
+    ):
+        raise HTTPException(409, "This driver is already completing another route")
+    if vehicle_id:
+        vehicle = must(tx, "vehicles", vehicle_id)
+        if vehicle["seller_id"] != pool["seller_id"] or not vehicle["active"]:
+            raise HTTPException(
+                422, "Choose an active vehicle belonging to this distributor"
+            )
+        if (
+            pool["weight_grams"] > vehicle["max_weight_grams"]
+            or pool["volume_cm3"] > vehicle["max_volume_cm3"]
+        ):
+            raise HTTPException(409, "The cleared load exceeds this vehicle's capacity")
+        if any(
+            p["id"] != pool["id"]
+            and p["status"] == "DISPATCHED"
+            and p.get("vehicle_id") == vehicle_id
+            for p in tx.all("pools")
+        ):
+            raise HTTPException(
+                409, "This vehicle is already assigned to an active route"
+            )
+        pool.update(vehicle_id=vehicle_id, vehicle_snapshot=vehicle)
     if "DRIVER" not in driver["roles"] or not driver.get("active", True):
         raise HTTPException(422, "Assign an active driver")
     orders = [tx.get("orders", a["order_id"]) for a in pool["allocations"]]
@@ -478,6 +673,28 @@ def dispatch(tx, user, pool, driver_id):
             "Every included buyer must approve and authorize the current allocation before dispatch",
         )
     pool.update(status="DISPATCHED", driver_id=driver_id, dispatched_at=now())
+    if not pool.get("stock_committed"):
+        for sku, quantity in pool["demand"].items():
+            item = must(tx, "products", sku)
+            if item["stock"] < quantity:
+                raise HTTPException(409, "Inventory changed before dispatch")
+            item["stock"] -= quantity
+            item["stock_updated_at"] = now()
+            tx.put("products", item)
+            tx.put(
+                "stock_movements",
+                {
+                    "id": f"dispatch:{pool['id']}:{sku}",
+                    "seller_id": pool["seller_id"],
+                    "product_id": sku,
+                    "delta": -quantity,
+                    "balance": item["stock"],
+                    "reason": "Dispatched locked allocation",
+                    "actor": user["id"],
+                    "at": now(),
+                },
+            )
+        pool["stock_committed"] = True
     for order in orders:
         order["status"] = "FULFILLING"
         tx.put("orders", order)
@@ -486,7 +703,7 @@ def dispatch(tx, user, pool, driver_id):
     return pool
 
 
-def delivery(tx, user, order, data, payments):
+def delivery(tx, user, order, data, payments, defer_capture=False):
     require_role(user, "DRIVER")
     pool = must(tx, "pools", order["pool_id"])
     if pool.get("driver_id") != user["id"]:
@@ -512,24 +729,39 @@ def delivery(tx, user, order, data, payments):
             422, "Incomplete or unacknowledged delivery requires an exception"
         )
     order["pod"] = {**data, "recorded_at": now(), "driver_id": user["id"]}
-    order["status"] = "DELIVERED" if complete else "DELIVERY_EXCEPTION"
+    confirmation_required = (
+        order.get("recipient_confirmation_required") or payments.mode != "demo"
+    )
+    order["recipient_confirmation_required"] = confirmation_required
+    order["status"] = (
+        ("AWAITING_CONFIRMATION" if confirmation_required else "DELIVERED")
+        if complete
+        else "DELIVERY_EXCEPTION"
+    )
     tx.put("orders", order)
     tx.audit(user["id"], "POD_RECORDED", order["id"], data)
-    if complete:
-        order = payment_action(tx, user, order, payments, "capture")
+    if complete and not confirmation_required:
+        if defer_capture:
+            order["capture_requested"] = True
+            tx.put("orders", order)
+        else:
+            order = payment_action(tx, user, order, payments, "capture")
     if all(
         (tx.get("orders", a["order_id"]) or {}).get("status")
-        in {"DELIVERED", "DELIVERY_EXCEPTION"}
+        in {"DELIVERED", "DELIVERY_EXCEPTION", "AWAITING_CONFIRMATION", "CANCELLED"}
         for a in pool["allocations"]
     ):
         pool["status"] = "COMPLETED"
         tx.put("pools", pool)
         # Move physical inventory only once, after the run is complete. Before
         # then its cleared allocations remain reserved by available_stock().
-        for sku, qty in pool["demand"].items():
-            item = must(tx, "products", sku)
-            item["stock"] -= qty
-            tx.put("products", item)
+        if not pool.get("stock_committed"):
+            for sku, qty in pool["demand"].items():
+                item = must(tx, "products", sku)
+                item["stock"] -= qty
+                tx.put("products", item)
+            pool["stock_committed"] = True
+            tx.put("pools", pool)
     return order
 
 
@@ -538,6 +770,10 @@ def smart_receipt(order):
         order.get("pod")
         and not order["pod"].get("exception")
         and order["payment_status"] == "CAPTURED"
+        and (
+            not order.get("recipient_confirmation_required")
+            or bool(order.get("buyer_confirmed_at"))
+        )
     )
     return {
         "issuer": "PayPool",
@@ -549,5 +785,10 @@ def smart_receipt(order):
         else "PENDING",
         "order": order,
         "generated_at": now(),
-        "note": "PayPool reconciliation record; not a PayPal-issued or statutory tax invoice",
+        "note": "PayPool reconciliation record; not a PayPal-issued or statutory tax invoice"
+        + (
+            ". SIMULATED PAYMENTS: no money moved"
+            if order.get("provider") == "demo"
+            else ""
+        ),
     }

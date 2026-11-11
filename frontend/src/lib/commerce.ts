@@ -12,6 +12,14 @@ export type Product = {
   volume_cm3: number;
   attributes: Record<string, string>;
   tiers: Tier[];
+  description?: string;
+  category?: string;
+  pack?: string;
+  image_url?: string;
+  product_url?: string;
+  active?: boolean;
+  negotiation_floor_minor?: number | null;
+  stock_updated_at?: string;
 };
 export type Zone = {
   currency: string;
@@ -25,6 +33,15 @@ export type Zone = {
   max_volume_cm3: number;
   polygon: [number, number][];
   depot: [number, number];
+  active?: boolean;
+  freight_weight_percent?: number;
+  timezone?: string;
+  dispatch_time?: string;
+  delivery_window?: string;
+  weekdays?: number[];
+  cutoff_hours_before?: number;
+  auto_clear_at_cutoff?: boolean;
+  recipient_confirmation_required?: boolean;
 };
 export type BuyingRequest = {
   id: string;
@@ -40,6 +57,7 @@ export type BuyingRequest = {
   currency: string;
   status: string;
   note: string;
+  substitute_product_ids?: string[];
 };
 export type Allocation = {
   product_snapshot?: {
@@ -81,6 +99,11 @@ export type Pool = {
   driver_id?: string;
   route?: string[];
   solver?: string;
+  zone_snapshot?: { name: string };
+  approval_expires_at?: string;
+  cutoff_at?: string;
+  delivery_window?: string;
+  vehicle_id?: string;
 };
 export type Order = Allocation & {
   id: string;
@@ -96,6 +119,17 @@ export type Order = Allocation & {
   agreement_hash: string;
   refunded_minor: number;
   payment_error?: string;
+  buyer_confirmed_at?: string;
+  recipient_confirmation_required?: boolean;
+  pod_history?: {
+    id: string;
+    reason: string;
+    pod: {
+      delivered_quantity: number;
+      exception: string | null;
+      recorded_at: string;
+    };
+  }[];
   pod?: {
     delivered_quantity: number;
     recipient_name: string;

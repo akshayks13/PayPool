@@ -1,51 +1,48 @@
 # PayPool implementation status
 
-This describes the running build. `solution.md`, `architecture.md`, prompts and contracts contain broader plans.
+PayPool combines distributor-led B2B procurement with explicit buyer agreements, hard delivered-price limits, independent payments and recovery. The current executable domain is `backend/app/platform`, consumed by the four-role Next.js portal.
 
-## Working flow
+## Running application
 
-| Area | Implemented |
+| Area | Behavior |
 | --- | --- |
-| Identity | Hashed passwords, persistent eight-hour sessions, HttpOnly cookies, CSRF/origin checks, lockout, server-granted roles and owner checks; optional PayPal sandbox code/userinfo login |
-| Catalog | Persistent stock, earned volume tiers, protected variant attributes, keyword search, reviewed CSV/XLSX import with row errors and idempotent commit |
-| Geography | Validated polygons, boundary-inclusive eligibility, depot and capacity configuration; optional indexed PostGIS `ST_Covers` and existing-zone backfill |
-| Buying helper | Gemini structured extraction/narration when configured; explicitly offline deterministic mode; comparisons use persisted stock, tiers and demand |
-| Buyer control | Confirmed quantities, snapshotted product specifications, approved substitutes, date and immutable ceiling; exact version/hash approval before checkout |
-| Clearing | Bounded OR-Tools manifest search, reserved stock, route threshold, vehicle weight/volume, earned SKU prices, normalized footprint freight with exact-cent rounding, independent validation |
-| Recovery | Void old uncaptured commitments, exclude withdrawn demand, calculate replacement, require new approvals; replay-safe replacement creation |
-| Payments | Explicit simulator or genuine single-merchant PayPal sandbox AUTHORIZE, capture, void, refund and reconciliation adapters with stable operation IDs |
-| Webhooks | Provider signature verification, event deduplication, trusted provider reads and capture-reference recovery |
-| Fulfillment | Dispatch only after all included orders are authorized; assigned-driver route/navigation; append-only delivered quantities, acknowledgement and exceptions |
-| Receipts | Downloadable JSON linking agreement, provider references and delivery evidence; pending/matched/review status; not a statutory tax invoice |
-| Operations | Persisted account-scoped notifications/read receipts, audit, seller verification, role grants, location updates and environment status |
-| Persistence | Serialized SQLAlchemy transactions over SQLite or PostgreSQL, durable sessions/agreements/payments/refunds/audit |
+| Identity | Hashed passwords, persistent sessions, HttpOnly cookies, CSRF/origin checks, account lockout, server roles/ownership, expiry handling and no-role onboarding; optional PayPal authorization-code/userinfo login |
+| Catalog | Product metadata/variants, base and volume tiers, negotiation floors, create/edit/archive, CSV/XLSX review/commit, stock movements with expected-balance checks |
+| Discovery | SQL-scoped serviceable catalog and category filters, protected specification/pack matching, optional Elastic lexical/vector retrieval with explicit keyword fallback; optional Gemini extraction/narration |
+| Negotiation | Persisted two-party offers, counters, expiry/version checks, actor validation, idempotent initial proposals, revision history, seller floors and buyer ceilings; accepted terms enter final clearing |
+| Recurrence | Revocable standing buying instructions, per-date occurrence deduplication, specification revalidation, review-required failures; never automatic purchase consent |
+| Delivery areas | Leaflet vertex drawing/dragging plus coordinate editor, validated polygons, weekdays/timezone/windows, cutoffs, automatic clearing policy and buyer-confirmation policy |
+| Clearing | Transactional lock/optimization states, complete integer quantity search within the explicit candidate cap, stock/tier/capacity/zone checks, configurable normalized weight/volume freight, exact-cent rounding and independent validation |
+| Agreements | Versioned allocation records with product, buyer, location, delivery-zone, expiry and price snapshots; deterministic order IDs and hashes |
+| Recovery | Persist old cancellation before revised clearing; void holds, exclude withdrawn demand and require renewed consent; preserve failed replacement state and completed financial actions |
+| Fleet | Vehicle records/capacity, driver and vehicle availability checks, immutable dispatch snapshot, ordered manifest and navigation |
+| Stock | Cleared reservations protect future allocations; dispatch commits physical stock once; declared saleable returns/replacements create audited movements |
+| Delivery | Assigned-driver append-only evidence, exceptions and preserved attempt history; live capture requires authenticated buyer confirmation; exception cancellation/redelivery cannot increase the agreed total |
+| Payments | Explicit simulator or single-merchant PayPal sandbox create/authorize/capture/void/refund; persisted operation intent before external calls, conflicting-operation guards, stable provider IDs, uncertain-state reconciliation |
+| Webhooks | Signature verification outside the event loop, durable normalized event records, deduplication, capture/refund reference recovery and provider re-reads; pending events survive provider outages |
+| Receipts | Current reconciliation JSON, persisted worker projections and printable HTML; proof/confirmation/payment match, snapshotted terms, masked print references, refund state and simulation label |
+| Background jobs | Transactional outbox, replay-safe projections, retries/dead letters, worker heartbeat, recurring/cutoff/expiry scheduler, capture/reconciliation recovery; standalone SQL worker or Redis/Celery executor |
+| Operations | Account-scoped notifications, audit, seller verification and role grants, payment activity ledger, queue health and controlled retries |
+| External agents | Buyer-scoped revocable credentials, upstream-pinned ACP 2026-04-17 create/retrieve/update/complete/cancel contract, exact approved-quote binding, idempotency and expiry; safe portal continuation without delegated payment access |
+| Feed preparation | Merchant-reviewed JSONL using factual product details, base catalog price and current availability; reports missing required content, never publishes automatically or enables native checkout |
+| Persistence | SQLite or PostgreSQL SQLAlchemy domain records, cross-worker transaction serialization, Alembic baseline preserving existing records; optional indexed PostGIS `ST_Covers` |
 
-Live portal routes use the authenticated commerce API. Original preview components are retained as unmounted reference source. Identity-by-request fixture endpoints require both demo mode and the explicit legacy flag.
+## Checks performed
 
-## Product decisions
+- 62 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
+- Both optional checks were run successfully against local PostgreSQL 14 and Redis/Celery, including after the framework security updates: complete fulfillment/reconciliation and actual broker-to-worker consumption.
+- Five browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, and map/recurrence/buyer-confirmation/worker controls.
+- TypeScript checks and production compilation pass. npm reported zero known frontend vulnerabilities; pip-audit checked 98 installed Python packages with zero known vulnerabilities after the framework/tooling security updates.
+- Alembic preservation, Compose configuration and development-script syntax are checked. Container execution and actual PostGIS extension queries have not been exercised; the local PostgreSQL installation has no PostGIS extension.
 
-PayPool's central strength is agreement formation and recovery:
+## Explicit boundaries
 
-1. Discovery estimates are distinct from executable quotes. AI cannot invent discounts, change protected specifications, approve purchases or move money.
-2. Seller-configured tiers authorize prices. The running flow proposes earned alternatives; arbitrary autonomous seller negotiation is not claimed.
-3. Each buyer pays the configured merchant. No organizer collects everyone else's money.
-4. A dropout creates a new agreement and cost. Old authorizations are released and remaining buyers consent again.
-5. Uncertain payment responses block dispatch, completed cancellation or further refunds until resolved. Delivery exceptions preserve evidence without pretending settlement succeeded.
+- Six requests/buyers per run, one catalog SKU per request and a 30,000-manifest search budget. Larger integer ranges are rejected explicitly. Routing uses geographic distances, not live road ETAs. A single vehicle fulfills each pool.
+- Seller prices include applicable tax. Separate jurisdictional tax calculation, platform fees, partial-delivery capture and automated chargeback adjudication are not claimed. Exceptions support void/close, redelivery and merchant refunds, with explicit stock movements.
+- Domain records use a generic SQL JSON table with immutable IDs and snapshots. A normalized enterprise schema, large-scale load certification, managed backups and deployment operations remain rollout work.
+- In-process buyer/supplier policies and optional Gemini assistance are implemented. External autonomous runtime deployment and unsupported sponsor integrations are not fabricated.
+- **No team credentials were supplied.** Real PayPal sandbox approval/capture/refund/webhooks, Identity and model/embedding calls still require verification with the team's accounts. Their adapters are covered by mocks and fail closed on uncertain outcomes.
+- **Delegated/native agent payments, Vault, live payments and partner multi-merchant onboarding remain disabled.** ACP completion returns a validated continuation state; a purchase order is never accepted as proof of payment. This is a deliberate access boundary, not a hidden mock.
+- Optional Elastic/PostGIS/Docker paths need their configured services. The no-key SQLite application, SQL worker, PostgreSQL records and Redis/Celery paths are runnable and tested as noted above.
 
-## Bounds and remaining work
-
-- At most six buyers and 30,000 manifests per pool; integer quantity candidates are request endpoints and tier breakpoints. Feasible interior quantities can be missed. This is not globally optimal continuous procurement.
-- One request per buyer/run and one vehicle per pool. Routes use haversine distance; road-distance APIs, scheduling and live ETAs are future work.
-- Persistence uses JSON domain snapshots in a generic SQL table. Normalized schema, managed migrations, archival, indexing and load testing remain production work.
-- Provider calls execute synchronously within serialized transactions. Durable outbox, background workers, scheduled retries and operational recovery tooling remain; Redis/Celery are not running dependencies.
-- Unknown provider outcomes without returned IDs can require manual provider investigation. The app fails closed rather than inventing payment references or blindly retrying refunds.
-- POD records driver-submitted recipient evidence. Independent buyer OTP/signature, media uploads and fraud controls remain.
-- Seller prices must include applicable tax. Provider fees, reverse logistics, partial-delivery settlement and returned-stock adjustments need explicit commercial policies.
-- PayPal/Gemini credentials were not supplied. Adapters are implemented and mocked in tests; real sandbox purchases, signature-verified webhooks, Identity login and model calls must be checked with team credentials before submission. Optional PostGIS/Docker paths have not been exercised locally.
-- ACP, delegated Braintree tokens, Vault, multi-merchant onboarding, live payments, Elastic vector search and distributed agent orchestration are outside this build. UI does not present them as connected.
-
-## Validation
-
-Current checks: **45 API tests**, **3 browser journeys**, TypeScript checks and production compilation. npm audit reports no known frontend vulnerabilities. Compose configuration validates; container execution was unavailable because the local Docker daemon is stopped.
-
-`make test` runs API regressions and TypeScript checks. `npm run build` in `frontend` compiles production assets. `npm run test:e2e` exercises isolated browser journeys. Tests cover three-shop ordering, dropout repricing, infeasible revised ceilings, reserved stock, access isolation, payment uncertainty, refunds, receipts and restart persistence.
+See [prompt coverage](prompt-coverage.md), [combined product decisions](product-decisions.md), [ACP](acp.md) and [demo walkthrough](demo.md).

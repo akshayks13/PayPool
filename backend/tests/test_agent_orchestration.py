@@ -5,7 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.modules.negotiation.agents import CatalogCandidate, CatalogSearchQuery, YieldPolicy, YieldTier
+from app.modules.negotiation.agents import (
+    CatalogCandidate,
+    CatalogSearchQuery,
+    YieldPolicy,
+    YieldTier,
+)
 from app.modules.negotiation.llm import DeterministicNegotiationNarrator
 from app.modules.negotiation.orchestration import (
     AgentOrchestrationService,
@@ -15,7 +20,6 @@ from app.modules.negotiation.orchestration import (
 )
 from app.modules.negotiation.procurement_parser import DeterministicProcurementParser
 from app.modules.negotiation.procurement_schemas import ProcurementParseRequest
-
 
 SELLER_ID = UUID("20000000-0000-0000-0000-000000000001")
 

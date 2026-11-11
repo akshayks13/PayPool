@@ -25,6 +25,13 @@ export async function request<T>(
     cache: "no-store",
   });
   const payload = await response.json().catch(() => null);
+  if (
+    response.status === 401 &&
+    typeof window !== "undefined" &&
+    path !== "/api/v1/me" &&
+    !path.startsWith("/api/v1/auth/")
+  )
+    window.dispatchEvent(new Event("paypool:session-expired"));
   if (!response.ok)
     throw new ApiError(
       response.status,

@@ -10,14 +10,10 @@ Requires Python 3.12+ and Node 22+.
 
 ```sh
 make setup
-make backend
+make dev
 ```
 
-In another terminal:
-
-```sh
-make frontend
-```
+`make dev` starts the API, portal and durable worker. Stop all three with Ctrl+C. For separate terminals use `make backend`, `make frontend`, and `make worker`. `make migrate` applies the schema history without deleting existing records.
 
 Open **http://localhost:3000**. API documentation: **http://localhost:8000/docs**.
 
@@ -71,17 +67,40 @@ npm run test:e2e
 
 Browser tests start isolated API/portal servers with a temporary database. API tests cover ceilings, freight rounding, dropout recovery, payment states, delivery exceptions, refunds, persistence and access control.
 
+## Full application workflow
+
+- Retailers: natural-language discovery, confirmed requests, versioned supplier offers/counters, recurring instructions, final quotes, individual authorization, buyer receipt confirmation and printable reconciliation records.
+- Suppliers: reviewed catalog imports, variants/metadata, stock movement history, pricing floors, editable map boundaries, weekly schedules/cutoffs, configurable freight allocation, fleet and dispatch.
+- Drivers: assigned stop order/navigation, delivery evidence, exceptions and preserved redelivery attempts.
+- Operations: persisted audit/notifications, role grants, seller verification, durable event queue, retry diagnostics, payment activity and worker health.
+- External agents: revocable buyer-scoped access, pinned ACP 2026-04-17 continuation sessions and prepared JSONL discovery feeds. Tokenized native payment completion stays disabled without eligible merchant access.
+
+A product's base catalog price is used for public feed preparation; an unearned bulk discount is never advertised as an individual purchase price. Missing public product/image details are reported instead of fabricated.
+
+## Workers and optional services
+
+The default worker uses the SQL outbox and needs no Redis. For Celery:
+
+```sh
+cd backend
+.venv/bin/python -m celery -A app.platform.tasks worker --beat --loglevel=INFO
+```
+
+Configure `REDIS_URL`. Optional Elastic retrieval uses `ELASTICSEARCH_URL`; `PAYPOOL_EMBEDDINGS_ENABLED=true` adds 768-dimensional Gemini embeddings and reciprocal rank fusion. SQL revalidates stock, ownership, serviceability and final prices. Outbox jobs index catalog changes. Provider failures visibly use the keyword fallback.
+
+`ACP_ENABLED=false` is the default. Enabling it exposes a constrained continuation API, not native agent payment processing. Read [ACP integration](docs/acp.md), [prompt coverage](docs/prompt-coverage.md), and [product decisions](docs/product-decisions.md).
+
 ## Design boundaries
 
 - Money is integer minor units. Seller prices must include tax; the delivered total adds disclosed freight. There is no separate tax or provider-fee engine.
-- Bounded OR-Tools manifest search allows six buyers, integer catalog units and 30,000 candidates. Quantities are requested endpoints and configured tier breakpoints, not every interior quantity.
+- Bounded OR-Tools manifest search allows six buyers, integer catalog units and 30,000 candidates. Every integer quantity in the approved interval is searched. A larger search is rejected explicitly; this is not an unbounded or continuous optimizer.
 - Stop sequencing uses geographic distance, not road traffic or live ETAs.
 - Buyer/supplier agents are application policy roles with optional Gemini assistance. Independent distributed agent workers are not deployed.
-- ACP, delegated tokens, vaulting, multi-merchant onboarding and live payments are not enabled. [Implementation status](docs/implementation.md) is authoritative; earlier architecture files describe broader plans.
+- Native delegated payments, vaulting, multi-merchant onboarding and live payments are disabled. The ACP continuation API is also off by default. [Implementation status](docs/implementation.md) is authoritative.
 
 ```text
 frontend/    Next.js portal, authenticated API client, browser tests
 backend/     FastAPI, solver, persistence, PayPal adapters, API tests
-contracts/   Earlier API/event design references
+contracts/   Current OpenAPI snapshot and pinned ACP schemas
 docs/        Product vision, current status and demo
 ```

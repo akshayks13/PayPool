@@ -1,0 +1,14 @@
+{
+  "version": "2026-04-17",
+  "commit": "17adf494cf8b4bcb41967a0386188b8103316d2f",
+  "files": {
+    "openapi.agentic_checkout.yaml": {
+      "source": "https://raw.githubusercontent.com/agentic-commerce-protocol/agentic-commerce-protocol/17adf494cf8b4bcb41967a0386188b8103316d2f/spec/2026-04-17/openapi/openapi.agentic_checkout.yaml",
+      "sha256": "2a0aa239b4aed50732461d9b7e443ad98d5c2d3431277899433ead07cbd4fc55"
+    },
+    "schema.agentic_checkout.json": {
+      "source": "https://raw.githubusercontent.com/agentic-commerce-protocol/agentic-commerce-protocol/17adf494cf8b4bcb41967a0386188b8103316d2f/spec/2026-04-17/json-schema/schema.agentic_checkout.json",
+      "sha256": "d0e4290617d66bf05d002b8ace388732be2b3eb9a92a1003db7a2daa1e0436f2"
+    }
+  }
+}

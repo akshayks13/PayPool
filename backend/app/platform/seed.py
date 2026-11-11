@@ -50,6 +50,7 @@ ACCOUNTS = [
 def seed(store):
     with store.transaction() as tx:
         if tx.get("meta", "seed-v1"):
+            upgrade(tx)
             return
         for key, email, name, roles, location in ACCOUNTS:
             tx.put(
@@ -124,6 +125,7 @@ def seed(store):
                     ],
                 },
             )
+        upgrade(tx)
         tx.put(
             "meta",
             {
@@ -131,3 +133,21 @@ def seed(store):
                 "description": "Fictional businesses, inventory and USD pricing; not real supplier offers",
             },
         )
+
+
+def upgrade(tx):
+    if tx.get("meta", "seed-v2-fleet"):
+        return
+    tx.put(
+        "vehicles",
+        {
+            "id": "demo-van",
+            "seller_id": "seller-demo",
+            "name": "Shared delivery van",
+            "registration": "DEMO-VAN-01",
+            "max_weight_grams": 200000,
+            "max_volume_cm3": 400000,
+            "active": True,
+        },
+    )
+    tx.put("meta", {"id": "seed-v2-fleet", "description": "Fictional vehicle record"})

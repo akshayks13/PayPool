@@ -57,6 +57,18 @@ export function AppProviders({ children }: { children: ReactNode }) {
       .catch(() => setSession(null))
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    const expired = () => {
+      setCsrf("");
+      setSession(null);
+      setActiveRole(null);
+      client.clear();
+      if (window.location.pathname !== "/login")
+        window.location.assign("/login");
+    };
+    window.addEventListener("paypool:session-expired", expired);
+    return () => window.removeEventListener("paypool:session-expired", expired);
+  }, [client]);
   const signIn = async (email: string, password: string) => {
     const value = await post<Session>("/api/v1/auth/login", {
       email,

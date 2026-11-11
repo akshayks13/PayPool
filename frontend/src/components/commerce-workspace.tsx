@@ -24,6 +24,8 @@ import {
   type Workspace,
 } from "@/lib/commerce";
 import type { Role } from "@/lib/roles";
+import { PlatformFeatures } from "@/components/platform-features";
+import type { Features } from "@/lib/features";
 import { ConnectedCopilot } from "@/components/connected-copilot";
 
 type Act = (
@@ -102,7 +104,8 @@ export function CommerceWorkspace({
         headers,
         body: JSON.stringify(payload),
       });
-      if (value.payment_error || value.error) setError(String(value.payment_error || value.error));
+      if (value.payment_error || value.error)
+        setError(String(value.payment_error || value.error));
       else setNotice("Saved. The workspace reflects the latest server state.");
       await client.invalidateQueries({ queryKey: ["workspace"] });
       return value;
@@ -141,19 +144,34 @@ export function CommerceWorkspace({
   const data = query.data;
   const common = { data, act, busy };
   let content: ReactNode;
-  if (section === "procurement") content = <ConnectedCopilot {...common} />;
+  if (
+    [
+      "offers",
+      "standing-orders",
+      "inventory",
+      "fleet",
+      "service-areas",
+      "agent-access",
+      "product-feed",
+    ].includes(section) ||
+    (role === "ADMIN" &&
+      ["integrations", "environment", "jobs"].includes(section))
+  )
+    content = <PlatformFeatures {...common} role={role} section={section} />;
+  else if (section === "procurement")
+    content = <ConnectedCopilot {...common} />;
   else if (["catalog", "inventory", "pricing"].includes(section))
     content = <Catalog {...common} seller={role === "SELLER"} />;
   else if (section === "upload-products") content = <ImportSheet {...common} />;
   else if (["pools", "operations", "dispatch"].includes(section))
-    content = <Pools {...common} role={role} />;
+    content = <Pools {...common} data={{...data,pools:section==="dispatch"?data.pools.filter(p=>p.status==="CLEARED"):data.pools}} role={role} />;
   else if (["requests", "offers"].includes(section))
     content = <Requests {...common} seller={role === "SELLER"} />;
   else if (
     ["orders", "stops", "pod", "exceptions", "completed"].includes(section) ||
     (!section && role === "DRIVER")
   )
-    content = <Orders {...common} role={role} />;
+    content = <Orders {...common} data={{...data,orders:section==="exceptions"?data.orders.filter(o=>o.status==="DELIVERY_EXCEPTION"||o.payment_status==="REQUIRES_RECONCILIATION"):section==="completed"?data.orders.filter(o=>["DELIVERED","CANCELLED"].includes(o.status)):data.orders}} role={role} />;
   else if (section === "receipts") content = <Receipts data={data} />;
   else if (["service-areas", "fleet"].includes(section))
     content = <Zones {...common} />;
@@ -286,11 +304,23 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const items = data.products.filter(
-    (p) =>
-      (!seller || p.seller_id === data.user.id) &&
-      p.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  const [category, setCategory] = useState("");
+  const catalog = useQuery({
+    queryKey: ["catalog-search", data.user.id, search, category],
+    queryFn: () =>
+      request<{ items: Product[]; engine: string; warning: string | null }>(
+        `/api/v1/catalog/search?q=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&limit=100`,
+      ),
+    enabled: !seller,
+    refetchInterval: 5000,
+  });
+  const items = seller
+    ? data.products.filter(
+        (p) =>
+          p.seller_id === data.user.id &&
+          p.title.toLowerCase().includes(search.toLowerCase()),
+      )
+    : (catalog.data?.items ?? []);
   return (
     <div className="space-y-5">
       <div className="card flex flex-wrap items-center justify-between gap-3">
@@ -313,6 +343,36 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
+      {!seller && (
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            aria-label="Filter product category"
+            className="field !mt-0 !w-auto"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">All categories</option>
+            {Array.from(
+              new Set(data.products.map((p) => p.category ?? "General")),
+            ).map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          {catalog.isLoading && (
+            <p className="text-xs text-slate-500">
+              Searching current supplier inventory…
+            </p>
+          )}
+          {catalog.error && (
+            <p role="alert" className="text-sm text-red-800">
+              {catalog.error.message}
+            </p>
+          )}
+          {catalog.data?.warning && (
+            <p className="text-xs text-amber-800">{catalog.data.warning}</p>
+          )}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((p) => (
           <article className="card" key={p.id}>
@@ -320,6 +380,12 @@ function Catalog({ data, act, busy, seller }: Common & { seller: boolean }) {
               <Package size={30} />
             </div>
             <h3 className="font-bold">{p.title}</h3>
+            {p.description && (
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {p.description}
+              </p>
+            )}
+            {p.pack && <p className="mt-1 text-xs text-slate-500">{p.pack}</p>}
             <p className="mt-2 text-xs text-slate-500">
               {p.available_stock} {p.unit} available · {p.weight_grams} g / unit
             </p>
@@ -391,7 +457,7 @@ export function BuyingForm({
   busy,
   onDone,
   initialQuantity = 30,
-  initialCeiling = 1.7,
+  initialCeiling,
   initialDate,
 }: Common & {
   product: Product;
@@ -412,9 +478,7 @@ export function BuyingForm({
       p.seller_id === product.seller_id &&
       p.unit === product.unit &&
       p.currency === product.currency &&
-      ["variety", "size", "material"].every(
-        (k) => p.attributes[k] === product.attributes[k],
-      ),
+      (p.pack??"")===(product.pack??"") && Array.from(new Set([...Object.keys(product.attributes),...Object.keys(p.attributes)])).filter(k=>k!=="brand").every(k=>p.attributes[k]===product.attributes[k]),
   );
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -488,7 +552,16 @@ export function BuyingForm({
           type="number"
           step="0.01"
           min="0.01"
-          defaultValue={initialCeiling}
+          defaultValue={
+            initialCeiling ??
+            (product.tiers[0].unit_price_minor +
+              Math.ceil(
+                ((zones[0]?.base_freight_minor ?? 0) +
+                  (zones[0]?.stop_fee_minor ?? 0)) /
+                  initialQuantity,
+              )) /
+              100
+          }
           required
         />
         <span className="mt-1 block text-xs font-normal text-slate-500">
@@ -595,6 +668,16 @@ function Pools({
   readOnly = false,
 }: Common & { role: Role; readOnly?: boolean }) {
   const [driver, setDriver] = useState("driver-demo");
+  const [vehicle, setVehicle] = useState("");
+  const fleet = useQuery({
+    queryKey: ["features", data.user.id],
+    queryFn: () => request<Features>("/api/v1/features"),
+    enabled: !readOnly && ["SELLER", "ADMIN"].includes(role),
+  });
+  const vehicles =
+    fleet.data?.vehicles.filter(
+      (v) => v.seller_id === data.pools[0]?.seller_id && v.active,
+    ) ?? [];
   const [exclude, setExclude] = useState<Record<string, string>>({});
   if (!data.pools.length)
     return (
@@ -613,12 +696,14 @@ function Pools({
                   Delivery run · version {p.version}
                 </p>
                 <h3 className="mt-1 text-xl font-black">
-                  {data.zones.find((z) => z.id === p.zone_id)?.name ??
+                  {p.zone_snapshot?.name ??
+                    data.zones.find((z) => z.id === p.zone_id)?.name ??
                     "Shared delivery"}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  {p.dispatch_date} · {p.member_count} active requests ·{" "}
+                  {p.dispatch_date} · {p.member_count} participating requests ·{" "}
                   {p.included_count} cleared
+                  {p.delivery_window ? ` · ${p.delivery_window}` : ""}
                 </p>
               </div>
               <Badge value={p.status} />
@@ -653,6 +738,17 @@ function Pools({
                 </b>
               </div>
             </div>
+            {p.cutoff_at && (
+              <p className="mt-3 text-xs text-slate-500">
+                Buying cutoff: {new Date(p.cutoff_at).toLocaleString()}
+              </p>
+            )}
+            {p.approval_expires_at && p.status === "CLEARED" && (
+              <p className="mt-2 text-xs text-amber-800">
+                Final approval expires{" "}
+                {new Date(p.approval_expires_at).toLocaleString()}
+              </p>
+            )}
             {p.reason && (
               <p className="mt-4 text-sm leading-6 text-slate-600">
                 {p.reason}
@@ -722,7 +818,7 @@ function Pools({
             {!readOnly && (
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 {["SELLER", "ADMIN"].includes(role) &&
-                  ["ACCUMULATING", "FAILED"].includes(p.status) && (
+                  ["ACCUMULATING", "FAILED", "LOCKED"].includes(p.status) && (
                     <button
                       className="btn-primary"
                       disabled={busy}
@@ -774,6 +870,21 @@ function Pools({
                             </option>
                           ))}
                       </select>
+                      <select
+                        aria-label="Assign vehicle"
+                        className="field !mt-0 !w-auto"
+                        value={vehicle || vehicles[0]?.id || ""}
+                        onChange={(e) => setVehicle(e.target.value)}
+                      >
+                        {!vehicles.length && (
+                          <option value="">Zone capacity (demo only)</option>
+                        )}
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} · {v.max_weight_grams / 1000} kg
+                          </option>
+                        ))}
+                      </select>
                       <button
                         className="btn-primary"
                         disabled={
@@ -784,6 +895,11 @@ function Pools({
                         onClick={() =>
                           act(`/api/v1/pools/${p.id}/dispatch`, {
                             driver_id: driver,
+                            vehicle_id:
+                              vehicle ||
+                              vehicles.find((v) => v.seller_id === p.seller_id)
+                                ?.id ||
+                              null,
                           }).catch(() => {})
                         }
                       >
@@ -793,7 +909,12 @@ function Pools({
                     </>
                   )}
                 {["SELLER", "ADMIN"].includes(role) &&
-                  ["CLEARED", "ACCUMULATING", "FAILED"].includes(p.status) && (
+                  [
+                    "CLEARED",
+                    "ACCUMULATING",
+                    "FAILED",
+                    "CANCEL_PENDING",
+                  ].includes(p.status) && (
                     <button
                       className="btn-secondary"
                       disabled={busy}
@@ -924,6 +1045,24 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
               </p>
             )}
             <div className="mt-4 flex flex-wrap gap-2">
+              {role === "RETAILER" && o.status === "AWAITING_CONFIRMATION" && (
+                <button
+                  className="btn-primary"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Confirm that all ordered units arrived in acceptable condition? This allows the agreed payment capture.",
+                      )
+                    )
+                      act(`/api/v1/orders/${o.id}/confirm-delivery`).catch(
+                        () => {},
+                      );
+                  }}
+                >
+                  Confirm received goods & release payment
+                </button>
+              )}
               {role === "RETAILER" && o.payment_status === "NOT_STARTED" && (
                 <button
                   className="btn-primary"
@@ -1030,6 +1169,23 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
                   </button>
                 )}
             </div>
+            {["SELLER", "ADMIN"].includes(role) &&
+              o.status === "DELIVERY_EXCEPTION" && (
+                <ExceptionForm order={o} act={act} busy={busy} />
+              )}
+            {!!o.pod_history?.length && (
+              <details className="mt-4 rounded-xl border p-3 text-sm">
+                <summary>
+                  Previous delivery attempts ({o.pod_history.length})
+                </summary>
+                {o.pod_history.map((h) => (
+                  <p key={h.id} className="mt-2 text-xs text-slate-500">
+                    {h.pod.delivered_quantity} units · {h.pod.exception} ·{" "}
+                    {h.reason}
+                  </p>
+                ))}
+              </details>
+            )}
             {role === "DRIVER" && !o.pod && o.status === "FULFILLING" && (
               <PodForm order={o} act={act} busy={busy} />
             )}
@@ -1082,7 +1238,9 @@ function PodForm({
       className="mt-5 grid gap-4 rounded-xl border p-4 sm:grid-cols-2"
     >
       <label className="label">
-        Delivered quantity
+        {order.pod_history?.length
+          ? "Total good units received across attempts"
+          : "Delivered quantity"}
         <input
           className="field"
           type="number"
@@ -1156,6 +1314,14 @@ function Receipts({ data }: { data: Workspace }) {
             Agreement {r.order.agreement_hash}
           </p>
           <p className="mt-3 text-xs text-slate-500">{r.note}</p>
+          <a
+            className="btn-secondary mt-4 mr-3"
+            href={`/api/v1/orders/${r.order.id}/receipt.html`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open printable receipt
+          </a>
           <button
             className="btn-secondary mt-4"
             onClick={() => {
@@ -1195,6 +1361,15 @@ function ProductForm({
     try {
       const payload = {
         title: f.get("title"),
+        description: f.get("description"),
+        category: f.get("category"),
+        pack: f.get("pack"),
+        image_url: f.get("image"),
+        product_url: f.get("public_url"),
+        active: f.get("active") === "on",
+        negotiation_floor_minor: f.get("floor")
+          ? Math.round(Number(f.get("floor")) * 100)
+          : null,
         unit: f.get("unit"),
         currency: f.get("currency"),
         stock: Number(f.get("stock")),
@@ -1224,6 +1399,22 @@ function ProductForm({
       <form onSubmit={submit} className="mt-4 grid gap-4 md:grid-cols-3">
         {[
           ["title", "Product name", product?.title ?? ""],
+          ["description", "Description", product?.description ?? ""],
+          ["category", "Category", product?.category ?? "General"],
+          ["pack", "Pack / specification", product?.pack ?? ""],
+          ["image", "Image URL (HTTPS, optional)", product?.image_url ?? ""],
+          [
+            "public_url",
+            "Public product URL (HTTPS, optional)",
+            product?.product_url ?? "",
+          ],
+          [
+            "floor",
+            "Negotiation floor (optional)",
+            product?.negotiation_floor_minor
+              ? String(product.negotiation_floor_minor / 100)
+              : "",
+          ],
           ["unit", "Selling unit", product?.unit ?? "kg"],
           ["currency", "Currency", product?.currency ?? "USD"],
           ["stock", "Units in stock", product?.stock ?? 100],
@@ -1241,10 +1432,26 @@ function ProductForm({
                   ? "number"
                   : "text"
               }
-              required
+              required={
+                ![
+                  "description",
+                  "pack",
+                  "image",
+                  "public_url",
+                  "floor",
+                ].includes(String(name))
+              }
             />
           </label>
         ))}
+        <label className="flex items-center gap-2 text-sm md:col-span-3">
+          <input
+            name="active"
+            type="checkbox"
+            defaultChecked={product?.active ?? true}
+          />
+          Listed in active catalog
+        </label>
         <label className="label md:col-span-3">
           Product attributes (JSON)
           <textarea
@@ -1758,5 +1965,86 @@ function DriverRoute({ data }: { data: Workspace }) {
           </section>
         ))}
     </>
+  );
+}
+
+function ExceptionForm({
+  order,
+  act,
+  busy,
+}: {
+  order: Order;
+  act: Act;
+  busy: boolean;
+}) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    if (
+      !window.confirm(
+        "Apply this resolution and preserve the delivery evidence?",
+      )
+    )
+      return;
+    try {
+      await act(`/api/v1/orders/${order.id}/resolve-exception`, {
+        action: f.get("action"),
+        reason: f.get("reason"),
+        returned_quantity: Number(f.get("returned")),
+        replacement_quantity: Number(f.get("replacement")),
+      });
+    } catch {}
+  }
+  return (
+    <form
+      onSubmit={submit}
+      className="mt-4 grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 md:grid-cols-2"
+    >
+      <label className="label">
+        Exception resolution
+        <select name="action" className="field">
+          <option value="REDELIVER">Arrange another delivery attempt</option>
+          <option value="VOID_AND_CLOSE">
+            Void authorization & close order
+          </option>
+        </select>
+      </label>
+      <label className="label">
+        Resolution reason
+        <input name="reason" className="field" minLength={3} required />
+      </label>
+      <label className="label">
+        Saleable units returned to stock
+        <input
+          name="returned"
+          className="field"
+          type="number"
+          min="0"
+          max={order.quantity}
+          defaultValue="0"
+          required
+        />
+      </label>
+      <label className="label">
+        Additional replacement units dispatched
+        <input
+          name="replacement"
+          className="field"
+          type="number"
+          min="0"
+          max={order.quantity}
+          defaultValue="0"
+          required
+        />
+      </label>
+      <p className="text-xs leading-5 text-amber-900 md:col-span-2">
+        Record actual stock movements. A redelivery reports cumulative good
+        units received, capped at the original quantity. The agreed payment
+        cannot increase.
+      </p>
+      <button className="btn-secondary md:col-span-2" disabled={busy}>
+        Apply exception resolution
+      </button>
+    </form>
   );
 }

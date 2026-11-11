@@ -120,8 +120,29 @@ class Transaction:
                 "details": details or {},
             },
         )
+        self.put(
+            "outbox",
+            {
+                "id": event["id"],
+                "event_id": event["id"],
+                "event_type": action.lower().replace("_", "."),
+                "occurred_at": event["at"],
+                "correlation_id": subject,
+                "aggregate_id": subject,
+                "schema_version": 1,
+                "payload": {
+                    "actor": actor,
+                    "action": action,
+                    "subject": subject,
+                    "details": details or {},
+                },
+                "status": "PENDING",
+                "attempts": 0,
+                "next_attempt_at": event["at"],
+            },
+        )
         recipients = {actor}
-        for kind in ("pools", "orders", "requests"):
+        for kind in ("pools", "orders", "requests", "offers", "standing_orders"):
             record = self.get(kind, subject)
             if not record:
                 continue
@@ -154,6 +175,8 @@ class Store:
         url = url or os.getenv("DATABASE_URL", "sqlite:///./data/paypool.db")
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
         if url.startswith("sqlite:///") and ":memory:" not in url:
             Path(url.removeprefix("sqlite:///")).parent.mkdir(
                 parents=True, exist_ok=True
@@ -168,7 +191,8 @@ class Store:
 
             kwargs["poolclass"] = StaticPool
         self.engine = create_engine(url, **kwargs)
-        metadata.create_all(self.engine)
+        if os.getenv("PAYPOOL_SCHEMA_AUTO_CREATE", "true").lower() == "true":
+            metadata.create_all(self.engine)
         self.postgis = os.getenv("PAYPOOL_POSTGIS", "false").lower() == "true"
         if self.postgis:
             if self.engine.dialect.name != "postgresql":
