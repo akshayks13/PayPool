@@ -105,6 +105,29 @@ Gemini is used only for structured request extraction. It cannot change the
 price ceiling, stock, seller policy, allocation, approval, payment, or roles.
 Those controls remain deterministic backend logic.
 
+### AI negotiation orchestration
+
+- `POST /api/v1/agents/negotiations/recommend`
+  - Accepts a retailer-confirmed, structured request and returns a proposal;
+    it never creates an offer, order, payment, or inventory update.
+  - Uses allowlisted typed ports for catalog search, seller inventory/policy,
+    price tiers, and the estimated pool freight quote. The current adapter is a
+    clearly isolated development fixture until the catalog/pooling services are
+    available.
+  - Runs deterministic checks for seller policy, earned volume tier, stock
+    policy, freight, currency, and the retailer's hard landed-cost ceiling.
+  - Calls Gemini only to produce short, schema-validated buyer/seller messages
+    from those already-validated facts. Gemini cannot receive tool access or
+    change prices, ceilings, stock, allocation, approval, payment, or roles.
+  - Records safe tool-call metadata and a structured run response. It does not
+    store hidden model reasoning.
+- Gemini calls have a bounded `PAYPOOL_LLM_TIMEOUT_MS` timeout (20 seconds by
+  default), returning `503 LLM_UNAVAILABLE` rather than keeping the portal
+  waiting when the provider is unavailable.
+- Transient Gemini `5xx` and connection failures use bounded exponential retry
+  (`PAYPOOL_LLM_MAX_RETRIES=2`, `PAYPOOL_LLM_RETRY_BACKOFF_MS=500` by default).
+  Invalid credentials, quotas, and malformed requests are never retried.
+
 ## Gemini configuration
 
 Use local, ignored environment variables in `backend/.env`:
@@ -113,6 +136,10 @@ Use local, ignored environment variables in `backend/.env`:
 GEMINI_API_KEY=your_key
 PAYPOOL_GEMINI_MODEL=gemini-3.8-flash
 PAYPOOL_LLM_PROVIDER=gemini
+PAYPOOL_AGENT_NARRATOR_PROVIDER=gemini
+PAYPOOL_LLM_TIMEOUT_MS=20000
+PAYPOOL_LLM_MAX_RETRIES=2
+PAYPOOL_LLM_RETRY_BACKOFF_MS=500
 ```
 
 `OPENAI_API_KEY` is still accepted temporarily as a migration fallback for the
@@ -129,6 +156,11 @@ Gemini key variable name. New setups should use `GEMINI_API_KEY`.
 - Safe failure when LLM configuration is missing.
 - Demo buyer/seller profiles and successful fixture negotiation.
 - Demo negotiation stops safely for missing constraints.
+- AI orchestration requires explicit retailer confirmation, rejects an
+  estimated total above the hard ceiling, rejects an unearned seller tier, and
+  returns a non-mutating draft recommendation only.
+- API-level agent orchestration response using the offline deterministic
+  narrator in tests.
 
 ## Pending features
 
@@ -172,6 +204,20 @@ Gemini key variable name. New setups should use `GEMINI_API_KEY`.
 - PayPal Checkout/Orders adapter, webhook verification/deduplication,
   reconciliation, optional India provider, and ACP adapter.
 - Receipt generation using authoritative order, payment, and POD evidence.
+
+### Remaining dependencies for Prompt 3's non-AI integrations
+
+- An authenticated Member 2 catalog, inventory, seller-policy, pool quote, and
+  allocation-preview service contract must replace the development tool
+  adapter. The agent must not query another module's tables directly.
+- Durable agent runs/tool audits, offer revisions, and procurement requests
+  need the shared SQLAlchemy/Alembic/PostgreSQL foundation.
+- PayPal sandbox merchant credentials, webhook ID, and the selected currency/
+  country configuration are needed before real Checkout, capture, signature
+  verification, reconciliation, and Smart Receipts can be implemented.
+- A pinned ACP specification plus confirmed store/Agent Ready access are
+  required before implementing ACP checkout semantics. ACP remains disabled;
+  no delegated payment token is fabricated.
 
 ### Frontend hardening
 

@@ -19,3 +19,8 @@ Next.js portal preview. Local credentials, build output, virtual environments,
 and installed dependencies are excluded from version control. See
 [`docs/implementation.md`](docs/implementation.md) for completed work and
 remaining features.
+
+commands to run:
+backend: python -m uvicorn app.main:app --reload  (or)  fastapi dev app/main.py
+
+frontend: npm run dev

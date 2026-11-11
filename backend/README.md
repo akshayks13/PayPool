@@ -17,3 +17,15 @@ default. Set `GEMINI_API_KEY` and optionally `PAYPOOL_GEMINI_MODEL` (default:
 `POST /api/v1/procurement/parse`. Set `PAYPOOL_LLM_PROVIDER=deterministic`
 only for offline local development and tests. The LLM extracts an intent; it
 never approves orders or becomes the authority for price ceilings.
+
+The same Gemini configuration is used by
+`POST /api/v1/agents/negotiations/recommend` to write simple buyer/seller
+messages from application-validated facts. It cannot call tools or change
+terms. `PAYPOOL_LLM_TIMEOUT_MS` bounds each Gemini request (20 seconds by
+default). Set `PAYPOOL_AGENT_NARRATOR_PROVIDER=deterministic` only for offline
+development and automated tests.
+
+Transient Gemini 5xx and network failures are retried with bounded exponential
+backoff. `PAYPOOL_LLM_MAX_RETRIES` defaults to `2` and
+`PAYPOOL_LLM_RETRY_BACKOFF_MS` defaults to `500`; authentication, quota, model,
+and schema errors are not retried.
