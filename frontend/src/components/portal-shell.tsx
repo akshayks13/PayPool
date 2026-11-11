@@ -170,7 +170,7 @@ function PermissionState({ isPreview }: { isPreview: boolean }) {
         </h1>
         <p className="mt-3 text-slate-600">
           {isPreview
-            ? "This role is not granted in the local preview."
+            ? "This role is not granted to your demo account."
             : "Sign in to a backend-authorized PayPool role to access this workspace."}
         </p>
         <Link href="/login" className="btn-primary mt-6">

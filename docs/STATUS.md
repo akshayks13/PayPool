@@ -2,6 +2,12 @@
 
 This is the authoritative answer to “is everything done?” The original prompts are requirements and ownership plans; checked boxes in the completion plan describe the delivered application scope, not certification of every original ambition.
 
+**Full source reconciliation:** [acceptance audit](acceptance-audit.md) maps the
+13-page PDF, original end-to-end idea, prompts 1–3 and frontend modules to code,
+tests, explicit changes and missing features. The PDF/prompt scope is **not fully
+implemented**, even apart from PayPal. The runnable local demo is a narrower,
+tested prototype; the final hackathon submission is still incomplete.
+
 **November 11 integration update:** real Gemini authentication, structured extraction, fact-constrained narration and the full browser discovery/review flow passed using the team's supplied credential. Gemini is enabled in the private local configuration. Subsequent checks also verified the embedding adapter; catalog and audit server pagination, offer comparison/rejection, and saved cross-device buying tasks are now implemented. PayPal remains in explicitly labelled simulation mode at the team's request because sandbox registration/credentials are unavailable. The real PayPal adapter is implemented but unverified. See [hackathon submission](hackathon-submission.md) for the rules-based submission checklist and draft materials.
 
 **The combined PayPool + PACT purchasing workflow is implemented and locally tested. Full literal prompt/PDF completion and production readiness are not claimed.** The product remains PayPool: distributor-led wholesale buying with explicit buyer agreements, hard delivered-price ceilings, separate payments and recovery when an agreement changes.

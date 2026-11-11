@@ -6,6 +6,10 @@ This repository includes a working multi-role portal and persistent procurement 
 
 For submission requirements, the draft description and a timed video plan, see [hackathon submission](docs/hackathon-submission.md). Real Gemini extraction/narration have been verified; PayPal payments currently run in explicitly labelled simulation mode pending sandbox access.
 
+The [acceptance audit](docs/acceptance-audit.md) reconciles the original 13-page PDF
+and all implementation prompts. It explicitly records missing and changed
+requirements; a working local demo is not a claim of full original-spec completion.
+
 ## Run locally
 
 Requires Python 3.12+ and Node 22+.
@@ -16,6 +20,12 @@ make dev
 ```
 
 `make dev` starts the API, portal and durable worker. Stop all three with Ctrl+C. For separate terminals use `make backend`, `make frontend`, and `make worker`. `make migrate` applies the schema history without deleting existing records.
+
+For a repeatable recording, stop an existing run and use `make demo`. This starts
+the same portal/API/worker on a **new, separate SQLite database**, explicitly uses
+simulated payments, and preserves your existing database. The terminal prints the
+new database path; it is retained after stopping. Gemini uses your private local
+configuration if configured; otherwise the copilot is explicitly offline.
 
 Open **http://localhost:3000**. API documentation: **http://localhost:8000/docs**.
 

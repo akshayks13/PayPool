@@ -1,4 +1,4 @@
-.PHONY: setup dev backend frontend worker migrate test
+.PHONY: setup dev demo backend frontend worker migrate test postman-demo
 
 setup:
 	python3.12 -m venv backend/.venv
@@ -23,6 +23,9 @@ migrate:
 
 dev:
 	bash scripts/dev.sh
+
+demo:
+	bash scripts/demo.sh
 
 test:
 	cd backend && .venv/bin/python -m pytest -q

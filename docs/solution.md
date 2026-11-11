@@ -23,4 +23,4 @@ No allocation clears above the buyer's hard ceiling. AI cannot change that ceili
 
 ## Integration scope
 
-The runnable application includes the portal, durable SQL domain, workers, payment adapters, private feed preparation and a pinned ACP continuation interface. Actual merchant credentials, native delegated payments, Vault, multi-merchant onboarding and distribution eligibility are separate activation requirements. See [implementation status](implementation.md) for tested paths and explicit limits.
+The runnable application includes the portal, durable SQL domain, workers, payment adapters, private feed preparation and a pinned ACP continuation interface. The existing PayPal adapter needs merchant credentials and real sandbox verification. Native delegated payments, Vault and multi-merchant onboarding are not implemented; they require additional code and eligible partner access. Feed distribution is not activated. See the [acceptance audit](acceptance-audit.md) for the original requirements and remaining work.

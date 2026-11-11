@@ -2,6 +2,12 @@
 
 Use separate browser contexts for three retailers, distributor and driver. Start with a fresh temporary `DATABASE_URL` for repeatable figures. Prices are fictional USD fixtures and payments are simulated unless sandbox credentials are enabled.
 
+After `make setup`, stop an existing run and use **`make demo`** for a fresh,
+separate database on the normal localhost ports. This preserves the existing
+development database, forces labelled simulated payments, and retains the new
+database after stopping. Gemini follows the private local configuration; without
+a key, the copilot is explicitly offline. Do not call the offline parser live AI.
+
 ## Story
 
 Ananya needs 30 kg of Sona Masoori rice. The small-order price is $1.80/kg, before $7 delivery. Her ceiling is $1.70/kg delivered. Alone she cannot meet that limit or the distributor's 50 kg dispatch minimum.
@@ -18,6 +24,11 @@ Meera then withdraws before dispatch. PayPool releases the old commitments and c
 4. Distributor sees 3/3 authorizations, assigns Kiran and dispatches.
 5. Driver opens Today's route, sees ordered stops/navigation, and records 30 units, recipient name and acknowledgement with no exception at each stop.
 6. Retailers open Receipts. A matched receipt requires both complete evidence and completed capture.
+
+The seeded South zone intentionally permits simulated capture after acknowledged
+driver evidence. A newly created zone defaults to authenticated buyer receipt
+confirmation; in that case the buyer must confirm received goods before capture.
+Driver acknowledgement alone is not independent buyer verification.
 
 ## Recovery
 

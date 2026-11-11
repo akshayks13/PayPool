@@ -1,40 +1,47 @@
 # PayPool portal
 
-Next.js App Router portal for retailer, seller, driver, and admin experiences.
+The running Next.js portal connects retailer, supplier, driver and admin screens
+to the FastAPI services. Authentication uses backend-owned sessions, server roles,
+HttpOnly cookies and CSRF protection. Arbitrary passwords and client-selected
+roles do not grant access.
 
-## Run locally
+Start the complete application from the repository root:
 
-```powershell
+```sh
+make setup
+make dev
+```
+
+Open `http://localhost:3000/login`. Use the seeded demo account selector and the
+development password documented in the [root README](../README.md). Separate
+browser profiles let you demonstrate several roles concurrently. Demo credentials
+are rejected when the backend runs with demo mode disabled.
+
+For just the portal, after installing dependencies:
+
+```sh
 cd frontend
-npm.cmd install
-Copy-Item .env.example .env.local
-npm.cmd run dev
+npm run dev -- --hostname localhost --port 3000
 ```
 
-Start the API in a second terminal:
+The API must also be running. `API_BASE_URL` is a server-only setting for the
+same-origin `/api` proxy; it defaults to `http://127.0.0.1:8000`.
 
-```powershell
-cd backend
-python -m uvicorn app.main:app --reload
+The route `app/[role]/[[...section]]/page.tsx` renders `PortalShell`, which uses
+`CommerceWorkspace`, `ConnectedCopilot` and `PlatformFeatures`. Older standalone
+prototype components are not routed and are not evidence of running features.
+The active screens use persisted API state, including catalog, offers, pools,
+approval, delivery, receipts and operations.
+
+```sh
+npm run typecheck
+npm run build
+npm run test:e2e
 ```
 
-Open `http://localhost:3000/login`. Enter any username and password, then
-choose the single role you want to preview (Retailer, Seller/Wholesaler, Driver,
-or Admin). Local UI preview is enabled in `.env.example`; no password is stored
-and the preview session resets on refresh.
-Set `NEXT_PUBLIC_DEMO_MODE=false` in deployed environments.
+Browser tests launch isolated local API/portal processes with a fresh database.
+Real Gemini checks are separate from the deterministic browser suite. PayPal
+is currently simulated at the team's request; it is always labelled.
 
-## Implemented backend integration
-
-- `POST /api/v1/procurement/parse` powers the retailer Procurement Copilot.
-- `POST /api/v1/offers` and `GET /api/v1/offers?request_id=...` power the
-  structured Offers workspace.
-- Backend errors remain visible and form values are preserved; no request is
-  represented as a completed order or payment.
-
-Identity, catalog, pools, orders, fulfillment, seller, driver, and admin APIs
-are not implemented in the backend yet. Their corresponding role pages are
-deliberately rendered as integration-pending states rather than mock records.
-
-The browser never computes an authoritative landed price, clears an allocation,
-changes `C_max`, or stores credentials/payment tokens.
+Read [delivery status](../docs/STATUS.md) for remaining work and
+[prompt coverage](../docs/prompt-coverage.md) for canonical API contracts.

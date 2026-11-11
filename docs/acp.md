@@ -20,4 +20,4 @@ A prepared file is not a published feed or a claim of ChatGPT eligibility. Regio
 
 ## Activation
 
-The public protocol is separate from approved distribution/payment access. [PayPal Agent Ready](https://developer.paypal.com/agent-ready/overview/) documents the Braintree delegated-token path. Do not enable an invented handler, accept a purchase-order number as payment proof, or fabricate delegated tokens. Portal PayPal sandbox approval remains the runnable payment path.
+The public protocol is separate from approved distribution/payment access. [PayPal Agent Ready](https://developer.paypal.com/agent-ready/overview/) documents the Braintree delegated-token path. Do not enable an invented handler, accept a purchase-order number as payment proof, or fabricate delegated tokens. The portal sandbox adapter requires merchant credentials and actual verification; the currently configured financial path is the labelled simulator.
