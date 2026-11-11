@@ -10,7 +10,7 @@ _QUANTITY = re.compile(
 )
 _PRICE_CEILING = re.compile(
     r"(?:landed\s+)?(?:price|cost)\s*(?:below|under|less\s+than|<=)\s*"
-    r"(?:₹|inr|rs\.?)?\s*(?P<amount>\d+(?:\.\d+)?)\s*(?:/\s*(?P<unit>kg|g|l|ml|unit|pack|box))?",
+    r"(?:₹|\$|usd|eur|gbp|inr|rs\.?)?\s*(?P<amount>\d+(?:\.\d+)?)\s*(?:/\s*(?P<unit>kg|g|l|ml|unit|pack|box))?",
     re.IGNORECASE,
 )
 _ISO_DATE = re.compile(r"\b(?P<date>\d{4}-\d{2}-\d{2})\b")

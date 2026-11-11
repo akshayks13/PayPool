@@ -1,228 +1,51 @@
 # PayPool implementation status
 
-This document records what is currently implemented in the repository. It is a
-development snapshot, not a claim that the marketplace is production-ready.
+This describes the running build. `solution.md`, `architecture.md`, prompts and contracts contain broader plans.
 
-## Run backend tests
+## Working flow
 
-From the repository root, use this single PowerShell command:
+| Area | Implemented |
+| --- | --- |
+| Identity | Hashed passwords, persistent eight-hour sessions, HttpOnly cookies, CSRF/origin checks, lockout, server-granted roles and owner checks; optional PayPal sandbox code/userinfo login |
+| Catalog | Persistent stock, earned volume tiers, protected variant attributes, keyword search, reviewed CSV/XLSX import with row errors and idempotent commit |
+| Geography | Validated polygons, boundary-inclusive eligibility, depot and capacity configuration; optional indexed PostGIS `ST_Covers` and existing-zone backfill |
+| Buying helper | Gemini structured extraction/narration when configured; explicitly offline deterministic mode; comparisons use persisted stock, tiers and demand |
+| Buyer control | Confirmed quantities, snapshotted product specifications, approved substitutes, date and immutable ceiling; exact version/hash approval before checkout |
+| Clearing | Bounded OR-Tools manifest search, reserved stock, route threshold, vehicle weight/volume, earned SKU prices, normalized footprint freight with exact-cent rounding, independent validation |
+| Recovery | Void old uncaptured commitments, exclude withdrawn demand, calculate replacement, require new approvals; replay-safe replacement creation |
+| Payments | Explicit simulator or genuine single-merchant PayPal sandbox AUTHORIZE, capture, void, refund and reconciliation adapters with stable operation IDs |
+| Webhooks | Provider signature verification, event deduplication, trusted provider reads and capture-reference recovery |
+| Fulfillment | Dispatch only after all included orders are authorized; assigned-driver route/navigation; append-only delivered quantities, acknowledgement and exceptions |
+| Receipts | Downloadable JSON linking agreement, provider references and delivery evidence; pending/matched/review status; not a statutory tax invoice |
+| Operations | Persisted account-scoped notifications/read receipts, audit, seller verification, role grants, location updates and environment status |
+| Persistence | Serialized SQLAlchemy transactions over SQLite or PostgreSQL, durable sessions/agreements/payments/refunds/audit |
 
-```powershell
-cd E:\paypool\backend; python -m pytest -q
-```
+Live portal routes use the authenticated commerce API. Original preview components are retained as unmounted reference source. Identity-by-request fixture endpoints require both demo mode and the explicit legacy flag.
 
-The current suite has 13 tests.
+## Product decisions
 
-## Implemented foundation
+PayPool's central strength is agreement formation and recovery:
 
-- Clean separated `frontend/` and `backend/` application boundaries.
-- FastAPI application with `GET /health` and local CORS support for
-  `http://localhost:3000`.
-- Minimal Python requirements and test configuration.
-- Git ignore rules for local `.env` files, Python environments, and Node build
-  artefacts.
-- Next.js App Router, TypeScript, Tailwind, and TanStack Query frontend setup.
+1. Discovery estimates are distinct from executable quotes. AI cannot invent discounts, change protected specifications, approve purchases or move money.
+2. Seller-configured tiers authorize prices. The running flow proposes earned alternatives; arbitrary autonomous seller negotiation is not claimed.
+3. Each buyer pays the configured merchant. No organizer collects everyone else's money.
+4. A dropout creates a new agreement and cost. Old authorizations are released and remaining buyers consent again.
+5. Uncertain payment responses block dispatch, completed cancellation or further refunds until resolved. Delivery exceptions preserve evidence without pretending settlement succeeded.
 
-## Implemented local login UI
+## Bounds and remaining work
 
-- Temporary local sign-in form accepts any username and password.
-- User must choose one role before entering a workspace.
-- Retailer and Seller/Wholesaler are the current UX focus.
-- Local sign-in stores no password and is reset on page refresh.
-- This is a UI-only placeholder for the future PayPal Login and backend RBAC
-  integration.
+- At most six buyers and 30,000 manifests per pool; integer quantity candidates are request endpoints and tier breakpoints. Feasible interior quantities can be missed. This is not globally optimal continuous procurement.
+- One request per buyer/run and one vehicle per pool. Routes use haversine distance; road-distance APIs, scheduling and live ETAs are future work.
+- Persistence uses JSON domain snapshots in a generic SQL table. Normalized schema, managed migrations, archival, indexing and load testing remain production work.
+- Provider calls execute synchronously within serialized transactions. Durable outbox, background workers, scheduled retries and operational recovery tooling remain; Redis/Celery are not running dependencies.
+- Unknown provider outcomes without returned IDs can require manual provider investigation. The app fails closed rather than inventing payment references or blindly retrying refunds.
+- POD records driver-submitted recipient evidence. Independent buyer OTP/signature, media uploads and fraud controls remain.
+- Seller prices must include applicable tax. Provider fees, reverse logistics, partial-delivery settlement and returned-stock adjustments need explicit commercial policies.
+- PayPal/Gemini credentials were not supplied. Adapters are implemented and mocked in tests; real sandbox purchases, signature-verified webhooks, Identity login and model calls must be checked with team credentials before submission. Optional PostGIS/Docker paths have not been exercised locally.
+- ACP, delegated Braintree tokens, Vault, multi-merchant onboarding, live payments, Elastic vector search and distributed agent orchestration are outside this build. UI does not present them as connected.
 
-## Implemented frontend
+## Validation
 
-### Shared UI
+Current checks: **45 API tests**, **3 browser journeys**, TypeScript checks and production compilation. npm audit reports no known frontend vulnerabilities. Compose configuration validates; container execution was unavailable because the local Docker daemon is stopped.
 
-- Blue-and-white responsive portal shell, sidebar, top bar, sign-out action,
-  role-specific navigation, cards, tables, dialogs, and status indicators.
-- Local mock data is explicitly labelled as demo data.
-- Every role navigation item renders a usable demo screen rather than a blank
-  page.
-
-### Retailer UI
-
-- Retailer home with clear next actions.
-- GPT-style `Buy with PayPool` chat interface.
-- Suggested prompts, conversation history, loading state, error state, and a
-  simple extracted-request review card.
-- Retailer confirmation step before a request proceeds to seller discovery.
-- Product discovery cards with simple shop-friendly terms.
-- Buyer/seller negotiation conversation UI with explicit action buttons.
-- Shared delivery, buying-list, orders, and receipt demo views.
-- A live raw offer API test panel remains available under Prices & offers for
-  development verification.
-
-### Seller / Wholesaler UI
-
-- Seller home with an operational checklist.
-- Product list with SKU, pack, price, stock, and state.
-- Excel/CSV product-sheet selection and review flow.
-- File selection, discovered-column preview, and product-review demo state.
-- Seller-side buyer-request and offer approval conversation UI.
-- Demo views for stock, pricing, delivery areas, vehicles, shared orders,
-  dispatch, orders, messages, and business settings.
-
-### Driver and admin UI
-
-- Role-specific navigation and populated demo workspace pages are available.
-- These are not yet the focus of the detailed user-flow implementation.
-
-## Implemented API endpoints
-
-### Procurement and offers
-
-- `POST /api/v1/procurement/parse`
-  - Extracts a structured procurement intent.
-  - Returns product, quantity, date, hard price ceiling, substitution consent,
-    protected attributes, and clarification questions.
-- `POST /api/v1/offers`
-  - Creates a versioned structured offer.
-- `GET /api/v1/offers?request_id=...`
-  - Lists offers for a procurement request.
-- `GET /api/v1/offers/{offer_id}`
-  - Retrieves an offer.
-- `POST /api/v1/offers/{offer_id}/counter`
-  - Creates a counter version.
-- `POST /api/v1/offers/{offer_id}/accept`
-  - Fails closed until an authoritative allocation quote exists.
-
-### Gemini-backed demo negotiation
-
-- `GET /api/v1/demo/profiles`
-  - Returns two local fixtures: GreenMart Kirana (retailer) and Sree
-    Distributors (seller).
-- `POST /api/v1/demo/negotiations/run`
-  - Gemini extracts the buyer's natural-language request at runtime.
-  - Buyer agent finds a constrained mock catalog candidate.
-  - Seller yield agent selects only an earned seller-approved volume tier.
-  - The API creates a real in-memory offer through the offer service.
-  - Both buyer and seller approval remain `PENDING`.
-
-Gemini is used only for structured request extraction. It cannot change the
-price ceiling, stock, seller policy, allocation, approval, payment, or roles.
-Those controls remain deterministic backend logic.
-
-### AI negotiation orchestration
-
-- `POST /api/v1/agents/negotiations/recommend`
-  - Accepts a retailer-confirmed, structured request and returns a proposal;
-    it never creates an offer, order, payment, or inventory update.
-  - Uses allowlisted typed ports for catalog search, seller inventory/policy,
-    price tiers, and the estimated pool freight quote. The current adapter is a
-    clearly isolated development fixture until the catalog/pooling services are
-    available.
-  - Runs deterministic checks for seller policy, earned volume tier, stock
-    policy, freight, currency, and the retailer's hard landed-cost ceiling.
-  - Calls Gemini only to produce short, schema-validated buyer/seller messages
-    from those already-validated facts. Gemini cannot receive tool access or
-    change prices, ceilings, stock, allocation, approval, payment, or roles.
-  - Records safe tool-call metadata and a structured run response. It does not
-    store hidden model reasoning.
-- Gemini calls have a bounded `PAYPOOL_LLM_TIMEOUT_MS` timeout (20 seconds by
-  default), returning `503 LLM_UNAVAILABLE` rather than keeping the portal
-  waiting when the provider is unavailable.
-- Transient Gemini `5xx` and connection failures use bounded exponential retry
-  (`PAYPOOL_LLM_MAX_RETRIES=2`, `PAYPOOL_LLM_RETRY_BACKOFF_MS=500` by default).
-  Invalid credentials, quotas, and malformed requests are never retried.
-
-## Gemini configuration
-
-Use local, ignored environment variables in `backend/.env`:
-
-```env
-GEMINI_API_KEY=your_key
-PAYPOOL_GEMINI_MODEL=gemini-3.8-flash
-PAYPOOL_LLM_PROVIDER=gemini
-PAYPOOL_AGENT_NARRATOR_PROVIDER=gemini
-PAYPOOL_LLM_TIMEOUT_MS=20000
-PAYPOOL_LLM_MAX_RETRIES=2
-PAYPOOL_LLM_RETRY_BACKOFF_MS=500
-```
-
-`OPENAI_API_KEY` is still accepted temporarily as a migration fallback for the
-Gemini key variable name. New setups should use `GEMINI_API_KEY`.
-
-## Test coverage implemented
-
-- Offer creation, price-ceiling validation, countering, and fail-closed
-  acceptance.
-- Deterministic procurement parsing and required clarification questions.
-- Buyer catalog recommendation stays within the hard ceiling.
-- Seller tier recommendation is advisory and requires seller approval.
-- Gemini output normalization and missing-field handling.
-- Safe failure when LLM configuration is missing.
-- Demo buyer/seller profiles and successful fixture negotiation.
-- Demo negotiation stops safely for missing constraints.
-- AI orchestration requires explicit retailer confirmation, rejects an
-  estimated total above the hard ceiling, rejects an unearned seller tier, and
-  returns a non-mutating draft recommendation only.
-- API-level agent orchestration response using the offline deterministic
-  narrator in tests.
-
-## Pending features
-
-### Authentication and authorization
-
-- PayPal Login/OIDC flow, callback, logout, session cookie, `GET /api/v1/me`,
-  `GET /api/v1/me/roles`, and backend-enforced RBAC.
-- Real multi-role switching based only on backend-granted memberships.
-
-### Retailer journey
-
-- Persisted procurement requests and confirmation endpoint.
-- Authoritative catalog search, product details, substitutes, seller
-  serviceability, and address-aware delivery eligibility.
-- Real agent tool calls to catalog, inventory, price-tier, pool-quote, and
-  allocation-preview services.
-- Pool membership, cutoff, live progress, final review, order approval,
-  checkout, order tracking, notifications, and Smart Receipts.
-
-### Seller journey
-
-- Real product, variant, inventory, price-tier, service-zone, fleet, route
-  fee, allocation, manifest, dispatch, and seller onboarding APIs.
-- Excel/CSV upload endpoint, Gemini-assisted column mapping, human review, and
-  transactional database import.
-- Product retrieval/indexing so retailer search can find seller products.
-
-### Driver and admin journeys
-
-- Driver routes, stop permissions, POD capture/upload, and delivery exception
-  APIs.
-- Admin user/role controls, seller verification, payment health, feature
-  status, support operations, and audit log APIs.
-
-### Commerce, fulfillment, and persistence
-
-- PostgreSQL/PostGIS schema, SQLAlchemy models, Alembic migrations, Redis,
-  Celery tasks, outbox events, and durable repositories.
-- Pool clearing, freight allocation, OR-Tools optimization, inventory races,
-  and authoritative allocation quote integration.
-- PayPal Checkout/Orders adapter, webhook verification/deduplication,
-  reconciliation, optional India provider, and ACP adapter.
-- Receipt generation using authoritative order, payment, and POD evidence.
-
-### Remaining dependencies for Prompt 3's non-AI integrations
-
-- An authenticated Member 2 catalog, inventory, seller-policy, pool quote, and
-  allocation-preview service contract must replace the development tool
-  adapter. The agent must not query another module's tables directly.
-- Durable agent runs/tool audits, offer revisions, and procurement requests
-  need the shared SQLAlchemy/Alembic/PostgreSQL foundation.
-- PayPal sandbox merchant credentials, webhook ID, and the selected currency/
-  country configuration are needed before real Checkout, capture, signature
-  verification, reconciliation, and Smart Receipts can be implemented.
-- A pinned ACP specification plus confirmed store/Agent Ready access are
-  required before implementing ACP checkout semantics. ACP remains disabled;
-  no delegated payment token is fabricated.
-
-### Frontend hardening
-
-- Connect current mock screens to finalized APIs.
-- Form validation with React Hook Form/Zod throughout every workflow.
-- Component, permission, error-state, and end-to-end tests.
-- Production build, lint, accessibility review, responsive device QA, and
-  secure PayPal session integration.
+`make test` runs API regressions and TypeScript checks. `npm run build` in `frontend` compiles production assets. `npm run test:e2e` exercises isolated browser journeys. Tests cover three-shop ordering, dropout repricing, infeasible revised ceilings, reserved stock, access isolation, payment uncertainty, refunds, receipts and restart persistence.

@@ -1,0 +1,144 @@
+import type { User } from "@/components/providers";
+export type Tier = { minimum_quantity: number; unit_price_minor: number };
+export type Product = {
+  id: string;
+  seller_id: string;
+  title: string;
+  currency: string;
+  unit: string;
+  stock: number;
+  available_stock: number;
+  weight_grams: number;
+  volume_cm3: number;
+  attributes: Record<string, string>;
+  tiers: Tier[];
+};
+export type Zone = {
+  currency: string;
+  id: string;
+  name: string;
+  seller_id: string;
+  base_freight_minor: number;
+  stop_fee_minor: number;
+  min_weight_grams: number;
+  max_weight_grams: number;
+  max_volume_cm3: number;
+  polygon: [number, number][];
+  depot: [number, number];
+};
+export type BuyingRequest = {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  product_id: string;
+  pool_id: string;
+  zone_id: string;
+  dispatch_date: string;
+  quantity_min: number;
+  quantity_max: number;
+  ceiling_minor: number;
+  currency: string;
+  status: string;
+  note: string;
+};
+export type Allocation = {
+  product_snapshot?: {
+    title: string;
+    unit: string;
+    currency: string;
+    attributes: Record<string, string>;
+  };
+  request_id: string;
+  buyer_id: string;
+  product_id: string;
+  order_id: string;
+  quantity: number;
+  unit_price_minor: number;
+  freight_minor: number;
+  total_minor: number;
+  ceiling_minor: number;
+  currency: string;
+  substituted: boolean;
+};
+export type Pool = {
+  id: string;
+  seller_id: string;
+  zone_id: string;
+  dispatch_date: string;
+  status: string;
+  version: number;
+  currency: string;
+  allocations: Allocation[];
+  included_count: number;
+  authorized_count: number;
+  member_count: number;
+  agreement_hash?: string;
+  freight_minor?: number;
+  weight_grams?: number;
+  volume_cm3?: number;
+  reason?: string;
+  request_ids?: string[];
+  driver_id?: string;
+  route?: string[];
+  solver?: string;
+};
+export type Order = Allocation & {
+  id: string;
+  pool_id: string;
+  seller_id: string;
+  status: string;
+  payment_status: string;
+  provider?: string;
+  provider_order_id?: string;
+  authorization_id?: string;
+  capture_id?: string;
+  approval_url?: string;
+  agreement_hash: string;
+  refunded_minor: number;
+  payment_error?: string;
+  pod?: {
+    delivered_quantity: number;
+    recipient_name: string;
+    exception: string | null;
+    note: string;
+    recorded_at: string;
+  };
+};
+export type Receipt = {
+  id: string;
+  status: string;
+  order: Order;
+  note: string;
+  generated_at: string;
+};
+export type Audit = {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  subject: string;
+  details: Record<string, unknown>;
+};
+export type Workspace = {
+  user: User;
+  payment_provider: string;
+  products: Product[];
+  zones: Zone[];
+  requests: BuyingRequest[];
+  pools: Pool[];
+  orders: Order[];
+  receipts: Receipt[];
+  people: User[];
+  audit: Audit[];
+  notifications: {
+    id: string;
+    action: string;
+    subject: string;
+    read: boolean;
+    created_at: string;
+  }[];
+};
+export const money = (value: number, currency = "USD") =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    value / 100,
+  );

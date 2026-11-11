@@ -38,7 +38,7 @@ class CatalogSearchQuery:
 class CatalogCandidate:
     sku_id: str
     title: str
-    seller_id: UUID
+    seller_id: UUID | str
     currency: str
     estimated_landed_unit_cost_minor: int
     available_quantity: str
@@ -73,7 +73,7 @@ class YieldTier:
 
 @dataclass(frozen=True)
 class YieldPolicy:
-    seller_id: UUID
+    seller_id: UUID | str
     sku_id: str
     available_quantity: Decimal
     route_fee_minor: int
@@ -83,7 +83,7 @@ class YieldPolicy:
 @dataclass(frozen=True)
 class YieldRecommendation:
     run_id: UUID
-    seller_id: UUID
+    seller_id: UUID | str
     sku_id: str
     proposed_unit_price_minor: int | None
     proposed_route_fee_minor: int | None

@@ -10,3 +10,13 @@ __pycache__/
 .venv/
 node_modules/
 .next/
+# Local databases, interpreter caches and browser test output
+data/
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+test-results/
+playwright-report/
+
+*.tsbuildinfo

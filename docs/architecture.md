@@ -1,4 +1,6 @@
 # PayPool — System Architecture
+> This is the broader architecture plan. See [implementation status](implementation.md) for the running build, supported adapters and remaining work.
+
 **Architecture:** modular monolith for the hackathon MVP, with background workers and isolated provider adapters.
 
 ## 1. Architecture decisions

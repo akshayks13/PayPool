@@ -1,5 +1,7 @@
 # Repository structure and module boundaries
 
+> This is the planned module layout. The current executable commerce domain is in `backend/app/platform`; see [implementation status](implementation.md).
+
 This repository uses a modular monolith for the MVP. `frontend` and `backend`
 are independently deployable application boundaries; business capabilities are
 kept cohesive inside each boundary. A module may depend on shared contracts,

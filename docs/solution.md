@@ -1,6 +1,8 @@
 # PayPool — Product Solution
 **Version:** 1.0 | **Status:** Hackathon MVP blueprint
 
+> This document describes the product vision. [Implementation status](implementation.md) identifies what is currently built and which integrations require account access.
+
 ## Overview
 PayPool is an AI-powered B2B procurement platform connecting independent retailers with regional wholesale distributors. Retailers describe purchasing needs in natural language or use a guided catalog. Buyer and distributor agents negotiate structured commercial offers; the platform pools compatible demand within a distributor's service area, allocates freight transparently, and checks every allocation against a hard landed-price ceiling. Retailers explicitly approve final orders before checkout. Distributors fulfill pooled deliveries, drivers record proof of delivery (POD), and PayPool generates auditable Smart Receipts.
 

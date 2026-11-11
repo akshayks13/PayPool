@@ -178,12 +178,10 @@ class GeminiProcurementExtractor:
 
     @classmethod
     def from_environment(cls) -> "GeminiProcurementExtractor":
-        # OPENAI_API_KEY is a temporary compatibility fallback for local .env
-        # files created before Gemini support. New deployments use GEMINI_API_KEY.
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise LLMUnavailableError("GEMINI_API_KEY is not configured")
-        model = os.getenv("PAYPOOL_GEMINI_MODEL", "gemini-3.8-flash")
+        model = os.getenv("PAYPOOL_GEMINI_MODEL", "gemini-2.5-flash")
         return cls(api_key=api_key, model=model)
 
     def parse(self, request: ProcurementParseRequest) -> ProcurementIntent:
