@@ -1050,11 +1050,30 @@ def grant(
     user_id: str, data: RoleGrant, user=Depends(current_user), store=Depends(store_for)
 ):
     require_role(user, "ADMIN")
+    if user_id == user["id"]:
+        raise HTTPException(403, "Another administrator must change your roles")
     with store.transaction() as tx:
         target = service.must(tx, "users", user_id)
         target["roles"] = sorted(set([*target["roles"], data.role]))
         tx.put("users", target)
         tx.audit(user["id"], "ROLE_GRANTED", user_id, {"role": data.role})
+        return public_user(target)
+
+
+@router.post("/admin/users/{user_id}/roles/revoke")
+def revoke_role(
+    user_id: str, data: RoleGrant, user=Depends(current_user), store=Depends(store_for)
+):
+    require_role(user, "ADMIN")
+    if user_id == user["id"]:
+        raise HTTPException(403, "Another administrator must change your roles")
+    with store.transaction() as tx:
+        target = service.must(tx, "users", user_id)
+        if data.role not in target["roles"]:
+            return public_user(target)
+        target["roles"] = [role for role in target["roles"] if role != data.role]
+        tx.put("users", target)
+        tx.audit(user["id"], "ROLE_REVOKED", user_id, {"role": data.role})
         return public_user(target)
 
 

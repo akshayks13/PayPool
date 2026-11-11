@@ -1,5 +1,7 @@
 # Coding Agent Prompt 1 — Identity, RBAC and Retailer Web Experience
 
+> Original specification, retained for traceability. Current delivery and open work: [STATUS.md](STATUS.md). This file is not a completion report.
+
 You are Member 1 implementing the identity/RBAC foundation and retailer-facing experience for PayPool.
 
 ## Ownership

@@ -1,5 +1,7 @@
 # Prompt coverage and integration contracts
 
+> For an explicit delivered/unverified/not-implemented breakdown, read [delivery status](STATUS.md). This table is not a claim of 100% literal prompt completion.
+
 The prompts are ownership plans, not proof of implementation. This report identifies the running services and explicit deployment dependencies.
 
 | Prompt | Completed application behavior | Account/service verification |

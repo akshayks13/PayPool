@@ -1,5 +1,7 @@
 # PayPool — Frontend Implementation Prompt
 
+> Original specification, retained for traceability. Current delivery and open work: [STATUS.md](STATUS.md). This file is not a completion report.
+
 **File:** `docs/prompt_frontend.md`  
 **Audience:** Frontend coding agent / frontend team  
 **Scope:** Complete web portal UI across all PayPool roles and product modules  

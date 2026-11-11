@@ -1,5 +1,7 @@
 # PayPool completion plan
 
+> This checklist covers the delivered application scope. It does **not** mean every original prompt/PDF feature or live integration is complete. See the authoritative [delivery status](STATUS.md), including unfinished work.
+
 Product: pooled wholesale procurement for independent shops, with PACT's explicit agreement, immutable limits, individually authorized payments, and recovery when terms change.
 
 The PDF is the customer/workflow foundation. Corrections: no claim of escrow; no automatic substitute consent; a buyer may set a ceiling below the standalone price; solver guarantees apply to verified outputs, not an invented linear formulation; partner-only payment products remain disabled without access.
@@ -19,4 +21,4 @@ The PDF is the customer/workflow foundation. Corrections: no claim of escrow; no
 - [x] Coherent retailer, supplier, driver and admin screens backed by the actual services.
 - [x] Updated OpenAPI, setup, product decisions and prompt coverage with tests/build evidence.
 
-Account-bound verification (actual PayPal, Identity, Gemini and external-agent certification) requires team credentials. These are separated from locally verifiable application completion.
+Actual PayPal, Identity and Gemini verification requires team credentials. Native delegated payments, external signed event delivery and partner merchant onboarding require additional implementation/access; credentials alone do not complete them. See [delivery status](STATUS.md).

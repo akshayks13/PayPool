@@ -164,14 +164,46 @@ export function CommerceWorkspace({
     content = <Catalog {...common} seller={role === "SELLER"} />;
   else if (section === "upload-products") content = <ImportSheet {...common} />;
   else if (["pools", "operations", "dispatch"].includes(section))
-    content = <Pools {...common} data={{...data,pools:section==="dispatch"?data.pools.filter(p=>p.status==="CLEARED"):data.pools}} role={role} />;
+    content = (
+      <Pools
+        {...common}
+        data={{
+          ...data,
+          pools:
+            section === "dispatch"
+              ? data.pools.filter((p) => p.status === "CLEARED")
+              : data.pools,
+        }}
+        role={role}
+      />
+    );
   else if (["requests", "offers"].includes(section))
     content = <Requests {...common} seller={role === "SELLER"} />;
   else if (
     ["orders", "stops", "pod", "exceptions", "completed"].includes(section) ||
     (!section && role === "DRIVER")
   )
-    content = <Orders {...common} data={{...data,orders:section==="exceptions"?data.orders.filter(o=>o.status==="DELIVERY_EXCEPTION"||o.payment_status==="REQUIRES_RECONCILIATION"):section==="completed"?data.orders.filter(o=>["DELIVERED","CANCELLED"].includes(o.status)):data.orders}} role={role} />;
+    content = (
+      <Orders
+        {...common}
+        data={{
+          ...data,
+          orders:
+            section === "exceptions"
+              ? data.orders.filter(
+                  (o) =>
+                    o.status === "DELIVERY_EXCEPTION" ||
+                    o.payment_status === "REQUIRES_RECONCILIATION",
+                )
+              : section === "completed"
+                ? data.orders.filter((o) =>
+                    ["DELIVERED", "CANCELLED"].includes(o.status),
+                  )
+                : data.orders,
+        }}
+        role={role}
+      />
+    );
   else if (section === "receipts") content = <Receipts data={data} />;
   else if (["service-areas", "fleet"].includes(section))
     content = <Zones {...common} />;
@@ -478,7 +510,15 @@ export function BuyingForm({
       p.seller_id === product.seller_id &&
       p.unit === product.unit &&
       p.currency === product.currency &&
-      (p.pack??"")===(product.pack??"") && Array.from(new Set([...Object.keys(product.attributes),...Object.keys(p.attributes)])).filter(k=>k!=="brand").every(k=>p.attributes[k]===product.attributes[k]),
+      (p.pack ?? "") === (product.pack ?? "") &&
+      Array.from(
+        new Set([
+          ...Object.keys(product.attributes),
+          ...Object.keys(p.attributes),
+        ]),
+      )
+        .filter((k) => k !== "brand")
+        .every((k) => p.attributes[k] === product.attributes[k]),
   );
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1772,6 +1812,15 @@ function Operations({
   busy,
   section,
 }: Common & { section: string }) {
+  const [auditQuery, setAuditQuery] = useState("");
+  const [auditPage, setAuditPage] = useState(0);
+  const auditRows = data.audit.filter((event) =>
+    `${event.action} ${event.actor} ${event.subject} ${event.at}`
+      .toLowerCase()
+      .includes(auditQuery.trim().toLowerCase()),
+  );
+  const pageCount = Math.max(1, Math.ceil(auditRows.length / 20));
+  const currentPage = Math.min(auditPage, pageCount - 1);
   if (section === "notifications")
     return (
       <section className="card">
@@ -1854,6 +1903,7 @@ function Operations({
                   className="btn-secondary"
                   disabled={busy}
                   onClick={() =>
+                    window.confirm(`Verify ${p.name}'s business?`) &&
                     act(`/api/v1/admin/users/${p.id}/verify`).catch(() => {})
                   }
                 >
@@ -1864,6 +1914,7 @@ function Operations({
                 aria-label={`Grant role to ${p.name}`}
                 className="field !mt-0 !w-auto"
                 value=""
+                disabled={busy || p.id === data.user.id}
                 onChange={(e) => {
                   if (
                     e.target.value &&
@@ -1881,14 +1932,48 @@ function Operations({
                   <option key={r}>{r}</option>
                 ))}
               </select>
+              {p.id !== data.user.id &&
+                p.roles.map((role) => (
+                  <button
+                    className="btn-secondary"
+                    key={role}
+                    disabled={busy}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Remove ${role} access from ${p.name}? Existing sessions lose this permission immediately.`,
+                        )
+                      )
+                        act(`/api/v1/admin/users/${p.id}/roles/revoke`, {
+                          role,
+                        }).catch(() => {});
+                    }}
+                  >
+                    Remove {role} from {p.name}
+                  </button>
+                ))}
             </div>
           ))}
         </section>
       )}
       <section className="card">
         <h3 className="font-bold">Activity & audit trail</h3>
-        {data.audit.length ? (
-          data.audit.map((a) => (
+        <p className="mt-2 text-xs text-slate-500">
+          Search the latest 100 accessible events. Older history remains in the
+          server audit store.
+        </p>
+        <input
+          className="field mt-4"
+          aria-label="Search audit events"
+          placeholder="Search action, actor, subject or date"
+          value={auditQuery}
+          onChange={(e) => {
+            setAuditQuery(e.target.value);
+            setAuditPage(0);
+          }}
+        />
+        {auditRows.length ? (
+          auditRows.slice(currentPage * 20, (currentPage + 1) * 20).map((a) => (
             <div
               className="flex flex-wrap justify-between gap-2 border-b py-3 text-sm"
               key={a.id}
@@ -1896,7 +1981,7 @@ function Operations({
               <div>
                 <b>{a.action.replaceAll("_", " ")}</b>
                 <p className="mt-1 font-mono text-[10px] text-slate-500">
-                  {a.subject}
+                  {a.subject} · Actor: {a.actor}
                 </p>
               </div>
               <span className="text-xs text-slate-500">
@@ -1906,9 +1991,28 @@ function Operations({
           ))
         ) : (
           <p className="mt-4 text-sm text-slate-500">
-            No account activity yet.
+            {auditQuery ? "No matching activity." : "No account activity yet."}
           </p>
         )}
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+          <button
+            className="btn-secondary"
+            disabled={currentPage === 0}
+            onClick={() => setAuditPage(currentPage - 1)}
+          >
+            Previous events
+          </button>
+          <span>
+            {auditRows.length} events · Page {currentPage + 1} of {pageCount}
+          </span>
+          <button
+            className="btn-secondary"
+            disabled={currentPage + 1 >= pageCount}
+            onClick={() => setAuditPage(currentPage + 1)}
+          >
+            Next events
+          </button>
+        </div>
       </section>
     </div>
   );

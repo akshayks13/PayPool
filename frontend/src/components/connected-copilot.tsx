@@ -49,20 +49,30 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim()) return;
+    // A clarification answers the current request; a completed comparison starts
+    // a new one. Keep the original requirements when the buyer supplies omissions.
+    const request = result?.intent.clarification_questions.length
+      ? `${message}\n${draft.trim()}`
+      : draft.trim();
+    if (request.length > 1000) {
+      setError(
+        "This request is too long. Start a new request with your combined requirements (up to 1,000 characters).",
+      );
+      return;
+    }
     setThinking(true);
     setError("");
     setSubmitted(false);
     setSelected(null);
-    setMessage(draft);
     try {
-      setResult(
-        await post<Discovery>("/api/v1/procurement/discover", {
-          message: draft,
-          currency: "USD",
-        }),
-      );
+      const discovery = await post<Discovery>("/api/v1/procurement/discover", {
+        message: request,
+        currency: "USD",
+      });
+      setResult(discovery);
+      setMessage(request);
+      setDraft("");
     } catch (e) {
-      setResult(null);
       setError(
         e instanceof Error ? e.message : "Could not interpret the request",
       );
@@ -89,7 +99,7 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             demand. You confirm the request before it joins a pool.
           </p>
           {message && (
-            <p className="ml-auto max-w-xl rounded-xl bg-blue-700 p-4 text-sm text-white">
+            <p className="ml-auto max-w-xl whitespace-pre-wrap rounded-xl bg-blue-700 p-4 text-sm text-white">
               {message}
             </p>
           )}
@@ -173,14 +183,37 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
           )}
         </div>
         <form onSubmit={submit} className="border-t p-4">
+          {(message || result) && (
+            <button
+              type="button"
+              className="mb-3 mr-3 text-sm font-semibold text-blue-700"
+              disabled={thinking}
+              onClick={() => {
+                setDraft("");
+                setResult(null);
+                setMessage("");
+                setSelected(null);
+                setSubmitted(false);
+                setError("");
+              }}
+            >
+              Start a new request
+            </button>
+          )}
           <button
             type="button"
             className="mb-3 rounded-full bg-blue-50 px-3 py-2 text-left text-xs text-blue-800"
-            onClick={() =>
+            disabled={thinking}
+            onClick={() => {
+              setResult(null);
+              setMessage("");
+              setSelected(null);
+              setSubmitted(false);
+              setError("");
               setDraft(
                 `I need 30 kg Sona Masoori rice by ${tomorrow}, landed price below USD 1.70/kg.`,
-              )
-            }
+              );
+            }}
           >
             Try a shared rice order within $1.70/kg
           </button>
@@ -188,6 +221,7 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             <textarea
               aria-label="Buying request"
               value={draft}
+              disabled={thinking}
               onChange={(e) => setDraft(e.target.value)}
               className="field min-h-20"
               placeholder="I need 30 kg rice by YYYY-MM-DD, landed price below USD 1.70/kg…"
@@ -202,6 +236,9 @@ export function ConnectedCopilot({ data, act, busy }: Props) {
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500">
+            {result?.intent.clarification_questions.length
+              ? "Your reply will be added to the request above. Start a new request to replace it. "
+              : ""}
             USD demo catalog. Other currencies require matching supplier
             products.
           </p>

@@ -1,5 +1,7 @@
 # PayPool implementation status
 
+> [Delivery status](STATUS.md) is the authoritative completion report. This inventory describes implemented behavior, with test evidence and boundaries below.
+
 PayPool combines distributor-led B2B procurement with explicit buyer agreements, hard delivered-price limits, independent payments and recovery. The current executable domain is `backend/app/platform`, consumed by the four-role Next.js portal.
 
 ## Running application
@@ -22,16 +24,16 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 | Webhooks | Signature verification outside the event loop, durable normalized event records, deduplication, capture/refund reference recovery and provider re-reads; pending events survive provider outages |
 | Receipts | Current reconciliation JSON, persisted worker projections and printable HTML; proof/confirmation/payment match, snapshotted terms, masked print references, refund state and simulation label |
 | Background jobs | Transactional outbox, replay-safe projections, retries/dead letters, worker heartbeat, recurring/cutoff/expiry scheduler, capture/reconciliation recovery; standalone SQL worker or Redis/Celery executor |
-| Operations | Account-scoped notifications, audit, seller verification and role grants, payment activity ledger, queue health and controlled retries |
+| Operations | Account-scoped notifications, audit, seller verification and role grants/removal with self-change prevention, searchable paginated recent audit history, payment activity ledger, queue health and controlled retries |
 | External agents | Buyer-scoped revocable credentials, upstream-pinned ACP 2026-04-17 create/retrieve/update/complete/cancel contract, exact approved-quote binding, idempotency and expiry; safe portal continuation without delegated payment access |
 | Feed preparation | Merchant-reviewed JSONL using factual product details, base catalog price and current availability; reports missing required content, never publishes automatically or enables native checkout |
 | Persistence | SQLite or PostgreSQL SQLAlchemy domain records, cross-worker transaction serialization, Alembic baseline preserving existing records; optional indexed PostGIS `ST_Covers` |
 
 ## Checks performed
 
-- 62 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
+- 64 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
 - Both optional checks were run successfully against local PostgreSQL 14 and Redis/Celery, including after the framework security updates: complete fulfillment/reconciliation and actual broker-to-worker consumption.
-- Five browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, and map/recurrence/buyer-confirmation/worker controls.
+- Seven browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, map/recurrence/buyer-confirmation/worker controls, multi-turn clarification/reset, and confirmed role removal/audit search/pagination.
 - TypeScript checks and production compilation pass. npm reported zero known frontend vulnerabilities; pip-audit checked 98 installed Python packages with zero known vulnerabilities after the framework/tooling security updates.
 - Alembic preservation, Compose configuration and development-script syntax are checked. Container execution and actual PostGIS extension queries have not been exercised; the local PostgreSQL installation has no PostGIS extension.
 

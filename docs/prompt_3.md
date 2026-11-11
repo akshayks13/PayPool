@@ -1,5 +1,7 @@
 # Coding Agent Prompt 3 — Agents, ACP, PayPal Payments, Webhooks and Receipts
 
+> Original specification, retained for traceability. Current delivery and open work: [STATUS.md](STATUS.md). This file is not a completion report.
+
 You are Member 3 implementing agent orchestration and the commerce/payment integration boundary for PayPool.
 
 ## Ownership

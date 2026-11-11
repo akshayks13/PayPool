@@ -101,6 +101,51 @@ def test_anonymous_and_cross_role_mutations_are_rejected(app):
     )
 
 
+def test_role_revocation_takes_effect_for_existing_sessions_and_is_audited(app):
+    admin = login(app, "admin")
+    buyer = login(app, "a")
+    endpoint = "/api/v1/admin/users/buyer-a/roles/revoke"
+    assert buyer.post(endpoint, json={"role": "RETAILER"}).status_code == 403
+    for action in ("roles", "roles/revoke"):
+        assert (
+            admin.post(
+                f"/api/v1/admin/users/admin-demo/{action}", json={"role": "ADMIN"}
+            ).status_code
+            == 403
+        )
+    assert admin.post(endpoint, json={"role": "RETAILER"}).status_code == 200
+    assert buyer.get("/api/v1/me").json()["user"]["roles"] == []
+    assert buy_after_revoke(buyer).status_code == 403
+    # Retrying removal is harmless and does not emit another permission change.
+    assert admin.post(endpoint, json={"role": "RETAILER"}).status_code == 200
+    state = admin.get("/api/v1/workspace").json()
+    events = [a for a in state["audit"] if a["action"] == "ROLE_REVOKED"]
+    assert len(events) == 1
+    assert events[0]["actor"] == "admin-demo"
+    assert events[0]["subject"] == "buyer-a"
+    assert (
+        admin.post(
+            "/api/v1/admin/users/buyer-a/roles", json={"role": "RETAILER"}
+        ).status_code
+        == 200
+    )
+    assert buyer.get("/api/v1/me").json()["user"]["roles"] == ["RETAILER"]
+
+
+def buy_after_revoke(client):
+    return client.post(
+        "/api/v1/procurement/requests",
+        json={
+            "product_id": "rice-sona",
+            "zone_id": "south-zone",
+            "dispatch_date": str(date.today() + timedelta(days=1)),
+            "quantity_min": 30,
+            "quantity_max": 30,
+            "ceiling_minor": 170,
+        },
+    )
+
+
 def test_full_three_buyer_delivery_and_receipt_flow(app):
     buyers, requests, seller, pool = cleared(app)
     assert sum(a["freight_minor"] for a in pool["allocations"]) == 900

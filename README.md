@@ -2,7 +2,7 @@
 
 Independent shops combine compatible wholesale demand into one delivery run. Each buyer keeps their own price limit, approves their exact allocation, and authorizes their own payment. A withdrawal triggers a new agreement and fresh consent.
 
-This repository includes a working multi-role portal and persistent procurement API. See [implementation status](docs/implementation.md) for scope and [demo walkthrough](docs/demo.md) for a presentation script.
+This repository includes a working multi-role portal and persistent procurement API. Read [delivery status](docs/STATUS.md) for the authoritative completion report, [implementation status](docs/implementation.md) for feature/test details and [demo walkthrough](docs/demo.md) for a presentation script.
 
 ## Run locally
 
@@ -96,7 +96,7 @@ Configure `REDIS_URL`. Optional Elastic retrieval uses `ELASTICSEARCH_URL`; `PAY
 - Bounded OR-Tools manifest search allows six buyers, integer catalog units and 30,000 candidates. Every integer quantity in the approved interval is searched. A larger search is rejected explicitly; this is not an unbounded or continuous optimizer.
 - Stop sequencing uses geographic distance, not road traffic or live ETAs.
 - Buyer/supplier agents are application policy roles with optional Gemini assistance. Independent distributed agent workers are not deployed.
-- Native delegated payments, vaulting, multi-merchant onboarding and live payments are disabled. The ACP continuation API is also off by default. [Implementation status](docs/implementation.md) is authoritative.
+- Native delegated payments, vaulting, multi-merchant onboarding and live payments are disabled. The ACP continuation API is also off by default. [Delivery status](docs/STATUS.md) distinguishes implemented features, unverified integrations and remaining work.
 
 ```text
 frontend/    Next.js portal, authenticated API client, browser tests

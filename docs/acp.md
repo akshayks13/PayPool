@@ -10,7 +10,7 @@ A retailer explicitly provisions temporary, revocable access through `/api/v1/me
 
 Supported paths: create, retrieve, update, complete and cancel under `/acp/checkout_sessions`. Native delegated payment processing is disabled: the valid protocol response is `requires_escalation` with a PayPool continuation URL. Completion never pretends that a purchase was paid. Cancellation closes the external session and does not silently cancel a shared buying agreement.
 
-The integration uses bearer authentication for requests; protocol Signature/Timestamp parameters are optional and are not presented as a completed bilateral signing/certification deployment. Native agent payment handlers and external order-event delivery need the partner-approved transport/provider configuration before activation.
+The integration uses bearer authentication for requests; protocol Signature/Timestamp parameters are optional and are not presented as a completed bilateral signing/certification deployment. Native agent payment handlers and signed external order-event delivery are not implemented; they require additional provider/transport code, contract tests and partner-approved access before activation.
 
 ## Product feed
 

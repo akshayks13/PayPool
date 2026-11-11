@@ -1,6 +1,7 @@
 # Integration adapters
 
-This boundary will hold provider-specific implementations for PayPal Identity,
-PayPal Orders/webhooks, Braintree (only if approved for ACP), Elasticsearch,
-and the selected LLM provider. Domain modules depend on provider-neutral ports,
-not adapter implementations.
+This directory is a historical planning namespace. Running PayPal Orders/webhook
+adapters are in `app/platform/payments.py`, Identity in `app/platform/router.py`,
+search in `app/platform/search.py`, and model adapters in `app/modules/negotiation`.
+Braintree delegated payments are not implemented. See `docs/STATUS.md` for the
+actual delivery boundary; this folder does not represent another provider stack.

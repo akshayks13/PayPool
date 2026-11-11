@@ -1,5 +1,7 @@
 # Coding Agent Prompt 2 — Seller, Catalog, Geo-Pooling, Optimization and Fulfillment
 
+> Original specification, retained for traceability. Current delivery and open work: [STATUS.md](STATUS.md). This file is not a completion report.
+
 You are Member 2 implementing seller operations and procurement clearing/logistics for PayPool.
 
 ## Ownership
