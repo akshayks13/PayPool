@@ -23,6 +23,7 @@ class ProcurementIntent(BaseModel):
     delivery_date: date | None = None
     delivery_date_text: str | None = None
     price_ceiling_per_unit_minor: int | None = Field(default=None, ge=0)
+    target_price_per_unit_minor: int | None = Field(default=None, ge=0)
     currency: str
     substitution_consent: bool = False
     protected_attributes: tuple[str, ...] = ()

@@ -1,8 +1,11 @@
 import re
 from datetime import date
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from app.modules.negotiation.procurement_schemas import ProcurementIntent, ProcurementParseRequest
+from app.modules.negotiation.procurement_schemas import (
+    ProcurementIntent,
+    ProcurementParseRequest,
+)
 
 _QUANTITY = re.compile(
     r"\b(?P<quantity>\d+(?:\.\d+)?)\s*(?P<unit>kg|g|l|ml|units?|packs?|boxes?)\b",
@@ -10,10 +13,14 @@ _QUANTITY = re.compile(
 )
 _PRICE_CEILING = re.compile(
     r"(?:landed\s+)?(?:price|cost)\s*(?:below|under|less\s+than|<=)\s*"
-    r"(?:₹|inr|rs\.?)?\s*(?P<amount>\d+(?:\.\d+)?)\s*(?:/\s*(?P<unit>kg|g|l|ml|unit|pack|box))?",
+    r"(?:₹|\$|usd|eur|gbp|inr|rs\.?)?\s*(?P<amount>\d+(?:\.\d+)?)\s*(?:/\s*(?P<unit>kg|g|l|ml|unit|pack|box))?",
     re.IGNORECASE,
 )
 _ISO_DATE = re.compile(r"\b(?P<date>\d{4}-\d{2}-\d{2})\b")
+_TARGET = re.compile(
+    r"\btarget(?:\s+price)?\s*(?:of|is|:)?\s*(?:₹|\$|usd|eur|gbp|inr)?\s*(?P<amount>\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 _BY_DATE = re.compile(r"\bby\s+(?P<date>[^,;.]+)", re.IGNORECASE)
 
 
@@ -25,6 +32,7 @@ class DeterministicProcurementParser:
         currency = request.currency.upper()
         quantity_match = _QUANTITY.search(message)
         price_match = _PRICE_CEILING.search(message)
+        target_match = _TARGET.search(message)
         date_match = _ISO_DATE.search(message)
         by_date_match = _BY_DATE.search(message)
 
@@ -34,14 +42,26 @@ class DeterministicProcurementParser:
             quantity = Decimal(quantity_match.group("quantity"))
             quantity_unit = quantity_match.group("unit").lower().rstrip("s")
 
-        ceiling_minor = self._to_minor_units(price_match.group("amount")) if price_match else None
-        delivery_date = self._parse_date(date_match.group("date")) if date_match else None
-        delivery_date_text = by_date_match.group("date").strip() if by_date_match else None
-        product = self._extract_product(message, quantity_match, by_date_match, price_match)
+        ceiling_minor = (
+            self._to_minor_units(price_match.group("amount")) if price_match else None
+        )
+        delivery_date = (
+            self._parse_date(date_match.group("date")) if date_match else None
+        )
+        delivery_date_text = (
+            by_date_match.group("date").strip() if by_date_match else None
+        )
+        product = self._extract_product(
+            message, quantity_match, by_date_match, price_match
+        )
         lower_message = message.lower()
         substitution_consent = any(
             phrase in lower_message
-            for phrase in ("substitute allowed", "substitutes allowed", "equivalent brands allowed")
+            for phrase in (
+                "substitute allowed",
+                "substitutes allowed",
+                "equivalent brands allowed",
+            )
         )
         protected = ("rice variety",) if "variety unchanged" in lower_message else ()
 
@@ -51,10 +71,20 @@ class DeterministicProcurementParser:
         if quantity is None:
             questions.append("What quantity and unit do you need?")
         if delivery_date is None:
-            questions.append("What is the delivery date? Please provide it as YYYY-MM-DD.")
+            questions.append(
+                "What is the delivery date? Please provide it as YYYY-MM-DD."
+            )
         if ceiling_minor is None:
             questions.append("What is the hard landed-price ceiling per unit?")
 
+        target = (
+            self._to_minor_units(target_match.group("amount")) if target_match else None
+        )
+        if target is not None and ceiling_minor is not None and target > ceiling_minor:
+            target = None
+            questions.append(
+                "The preferred target exceeds the hard ceiling. Please confirm the preferred target."
+            )
         return ProcurementIntent(
             source_message=message,
             product_description=product,
@@ -63,6 +93,7 @@ class DeterministicProcurementParser:
             delivery_date=delivery_date,
             delivery_date_text=delivery_date_text,
             price_ceiling_per_unit_minor=ceiling_minor,
+            target_price_per_unit_minor=target,
             currency=currency,
             substitution_consent=substitution_consent,
             protected_attributes=protected,
@@ -72,7 +103,9 @@ class DeterministicProcurementParser:
     @staticmethod
     def _to_minor_units(amount: str) -> int:
         try:
-            return int((Decimal(amount) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+            return int(
+                (Decimal(amount) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            )
         except InvalidOperation as error:
             raise ValueError("price amount must be numeric") from error
 
@@ -90,10 +123,22 @@ class DeterministicProcurementParser:
         by_date_match: re.Match[str] | None,
         price_match: re.Match[str] | None,
     ) -> str | None:
-        if not quantity_match:
-            return None
-        start = quantity_match.end()
-        end_candidates = [match.start() for match in (by_date_match, price_match) if match]
+        end_candidates = [
+            match.start() for match in (by_date_match, price_match) if match
+        ]
         end = min(end_candidates) if end_candidates else len(message)
-        product = message[start:end].strip(" ,;.-")
+        product = (
+            message[quantity_match.end() : end].strip(" ,;.-") if quantity_match else ""
+        )
+        if not product:
+            # Clarification replies may supply quantity after the original
+            # product ("I need rice\n30 kg by ..."). Preserve that product.
+            prefix_end = min(end, quantity_match.start()) if quantity_match else end
+            product = message[:prefix_end].strip(" ,;.-")
+            product = re.sub(
+                r"^(?:please\s+)?(?:(?:i\s+)?(?:need|want|would\s+like)(?:\s+to\s+buy)?|buy)\b\s*",
+                "",
+                product,
+                flags=re.IGNORECASE,
+            ).strip(" ,;.-")
         return product or None

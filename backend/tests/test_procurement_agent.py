@@ -52,6 +52,19 @@ def test_parse_returns_clarification_for_ambiguous_weekday(monkeypatch) -> None:
     assert "YYYY-MM-DD" in body["clarification_questions"][0]
 
 
+def test_clarification_quantity_after_original_product_preserves_requirements():
+    intent = DeterministicProcurementParser().parse(
+        ProcurementParseRequest(
+            message="I need Sona Masoori rice\n30 kg by 2026-11-13, landed price below USD 1.70/kg",
+            currency="USD",
+        )
+    )
+    assert intent.product_description == "Sona Masoori rice"
+    assert intent.quantity == Decimal("30")
+    assert intent.price_ceiling_per_unit_minor == 170
+    assert intent.clarification_questions == ()
+
+
 class StubCatalogSearch:
     def search_catalog(self, query: CatalogSearchQuery) -> list[CatalogCandidate]:
         return [

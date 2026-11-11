@@ -10,7 +10,8 @@ router = APIRouter(prefix="/procurement", tags=["procurement"])
 
 def get_procurement_parser() -> DeterministicProcurementParser | GeminiProcurementExtractor:
     """Gemini is the normal runtime path; deterministic mode is local/test-only."""
-    provider = os.getenv("PAYPOOL_LLM_PROVIDER", "gemini").lower()
+    offline_demo = os.getenv("PAYPOOL_DEMO_MODE", "true").lower() == "true" and not os.getenv("GEMINI_API_KEY")
+    provider = os.getenv("PAYPOOL_LLM_PROVIDER", "deterministic" if offline_demo else "gemini").lower()
     if provider == "deterministic":
         return DeterministicProcurementParser()
     if provider == "gemini":
