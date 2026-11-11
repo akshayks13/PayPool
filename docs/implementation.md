@@ -31,9 +31,10 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 
 ## Checks performed
 
-- 64 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
+- 70 default backend tests pass; the two optional service checks are skipped without disposable service URLs.
 - Both optional checks were run successfully against local PostgreSQL 14 and Redis/Celery, including after the framework security updates: complete fulfillment/reconciliation and actual broker-to-worker consumption.
 - Seven browser journeys cover the successful order, dropout recovery, scoped copilot access, commercial offers/fleet/stock, map/recurrence/buyer-confirmation/worker controls, multi-turn clarification/reset, and confirmed role removal/audit search/pagination.
+- A real-Gemini Chromium check passed: written quantity extraction, canonical unit matching, two eligible catalog offers, AI explanation and explicit buying confirmation. Unit normalization regression tests preserve quantities and the original price basis.
 - TypeScript checks and production compilation pass. npm reported zero known frontend vulnerabilities; pip-audit checked 98 installed Python packages with zero known vulnerabilities after the framework/tooling security updates.
 - Alembic preservation, Compose configuration and development-script syntax are checked. Container execution and actual PostGIS extension queries have not been exercised; the local PostgreSQL installation has no PostGIS extension.
 
@@ -43,7 +44,7 @@ PayPool combines distributor-led B2B procurement with explicit buyer agreements,
 - Seller prices include applicable tax. Separate jurisdictional tax calculation, platform fees, partial-delivery capture and automated chargeback adjudication are not claimed. Exceptions support void/close, redelivery and merchant refunds, with explicit stock movements.
 - Domain records use a generic SQL JSON table with immutable IDs and snapshots. A normalized enterprise schema, large-scale load certification, managed backups and deployment operations remain rollout work.
 - In-process buyer/supplier policies and optional Gemini assistance are implemented. External autonomous runtime deployment and unsupported sponsor integrations are not fabricated.
-- **No team credentials were supplied.** Real PayPal sandbox approval/capture/refund/webhooks, Identity and model/embedding calls still require verification with the team's accounts. Their adapters are covered by mocks and fail closed on uncertain outcomes.
+- **Gemini extraction and narration were verified with real provider calls on November 11, 2026.** The supplied key is kept in an ignored private local environment file. Real PayPal sandbox approval/capture/refund/webhooks and Identity remain unverified: the team requested simulated payments while registration is unavailable. Gemini embeddings are still unverified. Payment adapters are covered by mocks and fail closed on uncertain outcomes.
 - **Delegated/native agent payments, Vault, live payments and partner multi-merchant onboarding remain disabled.** ACP completion returns a validated continuation state; a purchase order is never accepted as proof of payment. This is a deliberate access boundary, not a hidden mock.
 - Optional Elastic/PostGIS/Docker paths need their configured services. The no-key SQLite application, SQL worker, PostgreSQL records and Redis/Celery paths are runnable and tested as noted above.
 

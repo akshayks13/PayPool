@@ -4,6 +4,8 @@ Independent shops combine compatible wholesale demand into one delivery run. Eac
 
 This repository includes a working multi-role portal and persistent procurement API. Read [delivery status](docs/STATUS.md) for the authoritative completion report, [implementation status](docs/implementation.md) for feature/test details and [demo walkthrough](docs/demo.md) for a presentation script.
 
+For submission requirements, the draft description and a timed video plan, see [hackathon submission](docs/hackathon-submission.md). Real Gemini extraction/narration have been verified; PayPal payments currently run in explicitly labelled simulation mode pending sandbox access.
+
 ## Run locally
 
 Requires Python 3.12+ and Node 22+.
