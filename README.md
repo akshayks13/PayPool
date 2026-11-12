@@ -6,7 +6,7 @@
 
 # PayPool
 
-[Live demo](https://paypool-gamma.vercel.app) · [Source repository](https://github.com/akshayks13/PayPool)
+[Live demo](https://paypool-ai.vercel.app) · [Source repository](https://github.com/akshayks13/PayPool)
 
 Independent shops combine wholesale demand into a viable supplier delivery run.
 Each buyer keeps a hard delivered-price limit, approves an exact allocation and

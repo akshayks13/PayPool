@@ -6,7 +6,7 @@ credentials in Render's secret environment variables.
 
 ## Current hosted deployment
 
-- Frontend: https://paypool-gamma.vercel.app
+- Frontend: https://paypool-ai.vercel.app
 - API: https://paypool-api.onrender.com
 - Vercel and Render deploy from `akshayks13/PayPool`, branch `main`.
 - Render service belongs to the **PayPool / Production** project.
