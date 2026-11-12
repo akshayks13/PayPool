@@ -59,6 +59,27 @@ A parsed request is not an order. An accepted commercial offer is not a final fr
 
 A single configured merchant receives separate buyer payments in the current sandbox integration. No pooled wallet or escrow balance exists. A changed group agreement requires release/reconciliation of old commitments and new buyer consent.
 
+## Browser checkout and authorization
+
+`paypal-checkout.tsx` loads PayPal's JavaScript SDK through the official
+`@paypal/paypal-js` loader, with sandbox mode, the approved currency and
+`intent=authorize`. SDK loading is shared per client/currency. Each order owns
+its own button, callbacks and cleanup. The button is interactive only after
+initialization; slow or failed loading offers a full-page fallback.
+
+The SDK `createOrder` callback invokes the authenticated server checkout route
+and returns its persisted provider order ID. `onApprove` invokes the server
+another time to authorize that same purchase. Currency and total are checked
+against the approved allocation; optional PayPal amount breakdown fields do not
+change those checks. The browser cannot supply a price or mark an order paid.
+A successful popup callback must return server state **AUTHORIZED**. Cancellation
+keeps checkout retryable; failed or uncertain authorization requires reconciliation.
+
+The public config exposes the SDK client ID only. OAuth credentials and webhook
+verification stay server-side. Local SQLite and hosted Neon use the same payment
+execution rules. [Payment verification notes](payments.md) distinguish proven
+sandbox authorization from the unverified real-provider capture/refund lifecycle.
+
 ## Operational envelope
 
 One request per buyer per run, six buyers, one vehicle and an explicit 30,000-manifest budget. Domain records are stored as SQL JSON documents with an Alembic baseline. The architecture is a modular monolith; a distributed microservice topology or an unbounded optimizer is not claimed. See [project scope](STATUS.md) for account/service dependencies and validation evidence.

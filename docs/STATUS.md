@@ -1,6 +1,8 @@
 # PayPool scope
 
-PayPool is a working local B2B pooled-purchasing application. `make dev` starts the
+PayPool is a B2B pooled-purchasing application available at
+https://paypool-ai.vercel.app, with source published on `main` at
+https://github.com/akshayks13/PayPool. `make dev` starts the
 Next.js portal, FastAPI backend and durable SQL worker. `make demo` starts the same
 system with a separate fresh database and explicitly simulated payments.
 
@@ -23,17 +25,31 @@ unresolved work and revokes existing sessions. Photos are authenticated and
 product/order scoped.
 
 Gemini extraction, explanations and embeddings have passed real provider calls.
-Current money movement remains simulated, as requested by the team. PayPal API
-adapters are implemented but real sandbox and Identity verification are outstanding.
 
-## Required before final hackathon submission
+## Current payment and deployment verification
 
-1. Verify actual PayPal sandbox use with team credentials when registration is available.
-2. Publish the final source revision publicly with its MIT license; the last anonymous repository check returned 404. Local commits have not been pushed.
-3. Record/upload the public video below three minutes and submit the Devpost entry.
+- **Local:** `make sandbox` starts the frontend, API and worker using separate
+  persistent SQLite data and genuine PayPal Sandbox checkout. `make demo` remains
+  an explicitly simulated workflow.
+- **Hosted:** Vercel serves the frontend; the API and worker run together in a
+  free Docker service under Render's **PayPool / Production** project. Neon
+  PostgreSQL stores persistent data. Vercel and Render deploy from GitHub `main`.
+- **Verified locally and hosted:** genuine SDK popup, Personal sandbox buyer
+  login, approval and $49 server-side authorization, with the parent app staying
+  on **My orders**. These checks used fictional sandbox purchases, not real money.
+- **Verified hosted:** signature-verified PayPal webhook and persisted receipt
+  evidence. Unsigned webhook rejection has also been checked.
+- **Focused regression coverage:** popup cancellation/retry, SDK failure with
+  full-page fallback, failed authorization never appearing successful, public
+  SDK configuration without OAuth secrets, and PayPal amount breakdown handling.
+- **Not yet verified end to end against PayPal:** capture after delivery and the
+  subsequent real sandbox refund/void lifecycle. The local simulator and automated
+  tests cover these application paths; this is separate from real-provider proof.
+- PayPal Identity login and native delegated payments remain disabled. Supplier
+  access approval is not PayPal partner merchant onboarding.
 
-The mock can demonstrate the workflow, but does not demonstrate a real PayPal
-transaction. Repository run instructions can provide judge access; hosting is optional.
+See [payment flow and verification](payments.md) and [deployment](deployment.md)
+for configuration, walkthroughs and service limitations.
 
 ## Deliberate product bounds
 
@@ -49,6 +65,7 @@ external catalog/ERP synchronization, native delegated payments, Vault, partner
 multi-merchant payouts and production operations are future expansions, not
 necessary dependencies of the local purchasing workflow and not claimed as built.
 
-PostGIS/Elasticsearch/container deployment still needs real service checks. Prior
-PostgreSQL-record and Redis/Celery checks passed. These optional services are not
-required by the local SQLite demo.
+The hosted Docker service and Neon PostgreSQL have been exercised. Optional
+PostGIS and Elasticsearch deployment still need service-specific checks; prior
+Redis/Celery checks passed. These optional services are not required by the local
+SQLite workflow or the current hosted SQL worker.

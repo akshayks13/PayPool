@@ -1,12 +1,42 @@
 # PayPool demo walkthrough
 
-Use separate browser contexts for three retailers, distributor and driver. Start with a fresh temporary `DATABASE_URL` for repeatable figures. Prices are fictional USD fixtures and payments are simulated unless sandbox credentials are enabled.
+Use separate browser contexts for three retailers, distributor and driver. Start with a fresh temporary `DATABASE_URL` for repeatable figures. Prices are fictional USD fixtures. `make demo` always simulates payments; use `make sandbox` for real sandbox checkout.
 
 After `make setup`, stop an existing run and use **`make demo`** for a fresh,
 separate database on the normal localhost ports. This preserves the existing
 development database, forces labelled simulated payments, and retains the new
 database after stopping. Gemini follows the private local configuration; without
 a key, the copilot is explicitly offline. Do not call the offline parser live AI.
+
+## Real PayPal popup walkthrough
+
+For localhost, stop any running PayPool instance and run **`make sandbox`** after
+privately configuring `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in
+`backend/.env`. Open http://localhost:3000. The separate persistent database is
+`backend/data/paypal-sandbox.db`; simulator data is preserved.
+
+The hosted app at https://paypool-ai.vercel.app uses the same popup process with
+Neon persistence. Its demo account selector and retailer signup are public.
+
+1. Sign in as Ananya using the demo account selector. App password:
+   `PayPool-demo-2026!`.
+2. Open **Shared delivery** and approve the labelled two-shop cleared quote.
+   If an unpaid order already exists, go directly to **My orders**.
+3. Wait for the PayPal button to finish loading, then click it. Desktop checkout
+   opens in a popup while PayPool stays visible.
+4. Sign in with a **Personal PayPal sandbox buyer**, using its separate email and
+   password. PayPal may show email/Next and password as separate steps.
+5. Approve the test purchase. The popup closes; **My orders** updates to
+   **AUTHORIZED** after server verification. No real money moves.
+6. Closing checkout before approval keeps it retryable. If the SDK cannot load,
+   expand **Having trouble opening PayPal?** and choose full-page checkout.
+
+Popup login, approval and $49 authorization were verified both locally and hosted.
+A signed webhook was verified on the hosted app. Capture after delivery remains
+unverified end to end. Do not describe an authorization as a completed capture.
+See [payment flow](payments.md) for setup and troubleshooting.
+
+## Offline simulator walkthrough
 
 ### Included walkthrough data
 
@@ -59,4 +89,5 @@ Use a second date/run and stop before dispatch. After authorization, distributor
 
 Buying helper input: `30 kg Sona Masoori rice by YYYY-MM-DD, landed price below USD 1.70/kg.` Use a future date. Show supplier comparison, current demand and confirmation. Without a Gemini key the UI explicitly reports offline interpretation. Enable the model before calling this a live AI demonstration.
 
-Show actual PayPal approval/capture references once credentials are configured. Describe constrained buyer/supplier coordination, bounded optimization and individually authorized merchant purchases. Avoid claims of production escrow, partner onboarding or live-road globally optimal routing.
+For real sandbox evidence, show the verified authorization reference and hosted
+webhook evidence. Completed simulator receipts do not prove a real sandbox capture. Describe constrained buyer/supplier coordination, bounded optimization and individually authorized merchant purchases. Avoid claims of production escrow, partner onboarding or live-road globally optimal routing.

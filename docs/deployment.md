@@ -21,8 +21,9 @@ credentials in Render's secret environment variables.
 - Demo account selection and retailer self-signup are available on `/login`.
   See README for demo credentials. Self-signup is restricted to sandbox demo mode.
 
-Sandbox OAuth, checkout creation, Personal buyer approval, a $49 authorization
-and a signature-verified webhook have been verified on the hosted app. Capture
+The real PayPal SDK popup, Personal buyer login, approval and $49 authorization
+have been verified on localhost and the hosted app without leaving My orders.
+A signature-verified webhook has been verified on the hosted app. Capture
 after delivery remains unverified end to end. A sandbox Business merchant cannot
 approve its own purchase as the buyer.
 
@@ -74,6 +75,20 @@ the existing scenarios. A non-empty database without the scenario marker is
 refused: disable this flag to keep using that database without injecting data.
 For explicitly offline interpretation, set `PAYPOOL_LLM_PROVIDER=deterministic`.
 
+To configure genuine sandbox payments instead of the Blueprint's simulator:
+
+- Set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox` and `PAYPOOL_PREPARE_DEMO=false`.
+- Supply private `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID`.
+- Set `PAYPAL_SELLER_ID=seller-demo` for the seeded connected distributor.
+- Keep `PAYPOOL_PREPARE_JUDGES=true` for labelled future buying groups.
+- Register `https://YOUR-API.onrender.com/api/v1/webhooks/paypal` in the same
+  sandbox REST application. Keep `PAYPOOL_FRONTEND_URL` equal to the public
+  frontend origin; it also supplies full-page fallback return URLs.
+- The frontend obtains only the public SDK client ID from `/api/v1/config`.
+  No PayPal secrets or extra Vercel payment environment variables are needed.
+
+See [payment flow](payments.md) for popup callbacks, credentials and troubleshooting.
+
 The hosted command migrates the database, optionally prepares scenarios and
 supervises both API and SQL worker. If either exits, the service exits for the
 hosting platform to restart it. It listens on `0.0.0.0:$PORT`. This is a single
@@ -85,7 +100,10 @@ instance demo arrangement; a paid separate worker is a future scaling option.
 2. In Vercel, set `API_BASE_URL=https://YOUR-API.onrender.com` for Production and redeploy.
 3. Open the Vercel URL, sign in using a demo account and confirm catalog/pool data loads.
 4. Confirm the AI helper reports Gemini when a model call succeeds.
-5. Test individual approval, simulated authorization, driver evidence and receipts.
+5. For sandbox mode, approve a quote, open the PayPal popup, approve with a Personal
+   sandbox buyer and confirm **AUTHORIZED** without leaving My orders. Check signed
+   webhook evidence. For simulator mode, use the explicitly simulated controls.
+   Delivery, capture and refund checks are separate from checkout authorization.
 6. Refresh and sign in again to confirm persisted state. Check Render logs and admin worker health.
 7. Open the Vercel URL in an incognito window. Disable Vercel deployment protection
    for this public demo if it asks judges to sign in to Vercel.

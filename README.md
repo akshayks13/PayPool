@@ -117,8 +117,11 @@ Sandbox credentials and API secrets are not published in this repository.
 
 Authorization reserves the approved test amount. Capture is a separate step
 after the required delivery checks; an authorized order is not yet captured.
-The hosted checkout, buyer approval, $49 authorization and signed webhook have
-been verified. Capture after delivery remains unverified end to end.
+Real popup checkout, Personal sandbox login, buyer approval and $49 authorization
+have been verified on both localhost and the hosted app. Both stayed on **My orders**
+while the popup completed. A signature-verified webhook was also verified on the
+hosted app. Capture after delivery remains unverified end to end. See the
+[payment flow and verification notes](docs/payments.md).
 
 The hosted dataset is shared, so examples may change as other testers use them.
 For the four repeatable local scenarios, use `make demo`: it explicitly forces
@@ -155,9 +158,10 @@ only for a new checkout, preserving any existing key file.
 is explicitly labelled offline interpretation. The team's local key is not in Git.
 
 **PayPal:** the hosted deployment uses PayPal Sandbox; local walkthroughs use
-simulation. Sandbox OAuth, real checkout creation, Personal buyer approval,
-$49 authorization and a signature-verified webhook have been verified on the
-hosted app. Capture after delivery has not yet been verified end to end.
+simulation with `make demo`; `make sandbox` enables real sandbox checkout locally.
+Sandbox OAuth, popup checkout, Personal buyer approval and $49 authorization have
+been verified locally and hosted, with a signed webhook verified on the hosted
+app. Capture after delivery has not yet been verified end to end.
 To configure your own deployment, set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`,
 `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` and `PAYPAL_SELLER_ID`.
 Use sandbox merchant/buyer accounts and real verified webhook events. Optional
@@ -215,6 +219,7 @@ There is a 100-image limit per account. Internal images are not published in fee
 
 - [Current scope and remaining setup](docs/STATUS.md)
 - [Architecture](docs/architecture.md)
+- [PayPal payment flow and verification](docs/payments.md)
 - [Demo walkthrough](docs/demo.md)
 - [Submission description and video plan](docs/hackathon-submission.md)
 - [External-agent interface](docs/acp.md)
