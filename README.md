@@ -123,6 +123,15 @@ The hosted dataset is shared, so examples may change as other testers use them.
 For the four repeatable local scenarios, use `make demo`: it explicitly forces
 simulated payments, even when sandbox credentials are configured locally.
 
+To try real PayPal Sandbox checkout on localhost instead, stop the current app,
+configure sandbox `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in `backend/.env`,
+and run **`make sandbox`**. This starts the API, frontend and worker with a separate
+persistent SQLite database at `backend/data/paypal-sandbox.db` and labelled buying
+examples. Approve a quote, open **My orders**, and complete checkout using a Personal
+sandbox buyer. The return URL points to localhost. This does not change the hosted
+webhook listener; receiving signed webhooks locally requires a separately configured
+public HTTPS listener.
+
 ## What works
 
 - Business/contact/delivery profiles, notification preferences and protected address changes.
