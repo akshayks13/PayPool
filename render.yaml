@@ -1,0 +1,39 @@
+# Free web service only. Supply an external Neon Free PostgreSQL connection.
+services:
+  - type: web
+    name: paypool-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.platform.hosted
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PAYPOOL_FRONTEND_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PAYPOOL_DEMO_MODE
+        value: "true"
+      - key: PAYPOOL_PAYMENT_PROVIDER
+        value: demo
+      - key: PAYPOOL_LLM_PROVIDER
+        value: gemini
+      - key: PAYPOOL_GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: PAYPOOL_COOKIE_SECURE
+        value: "true"
+      - key: PAYPOOL_POSTGIS
+        value: "false"
+      - key: PAYPOOL_ENABLE_LEGACY_API
+        value: "false"
+      - key: PAYPAL_LOGIN_ENABLED
+        value: "false"
+      - key: ACP_ENABLED
+        value: "false"
+      - key: PAYPOOL_PREPARE_DEMO
+        value: "true"
+      - key: PYTHONUNBUFFERED
+        value: "1"

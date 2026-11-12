@@ -38,6 +38,8 @@ the platform coordinates the agreement and its lifecycle.
 
 ## Start the app
 
+For a public demo, see [free deployment on Vercel, Render and Neon](docs/deployment.md).
+
 Requires **Python 3.12+ and Node.js 22+**. From this directory:
 
 ```sh

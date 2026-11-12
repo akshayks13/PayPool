@@ -208,7 +208,7 @@ class Store:
             from sqlalchemy.pool import StaticPool
 
             kwargs["poolclass"] = StaticPool
-        self.engine = create_engine(url, **kwargs)
+        self.engine = create_engine(url, pool_pre_ping=True, **kwargs)
         if os.getenv("PAYPOOL_SCHEMA_AUTO_CREATE", "true").lower() == "true":
             metadata.create_all(self.engine)
         self.postgis = os.getenv("PAYPOOL_POSTGIS", "false").lower() == "true"
