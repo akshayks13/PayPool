@@ -1,4 +1,5 @@
 # Local secrets and environment-specific configuration
+.DS_Store
 .env
 .env.*
 !.env.example

@@ -51,6 +51,21 @@ new, separate database and preserves existing development data. The terminal
 prints the retained demo database path. `make dev` uses persistent SQLite at
 `backend/data/paypool.db`. Docker, Redis and PostgreSQL are not needed locally.
 
+`make demo` also prepares the same four walkthroughs for every teammate:
+
+| Delivery date | Prepared scene |
+| --- | --- |
+| Tomorrow | Three 30 kg Harvest rice requests, ready for the supplier to clear into $48 allocations |
+| In two days | Three approved and authorized orders, ready for withdrawal recovery |
+| In three days | Dispatched route, with Ananya's delivery evidence still to record |
+| In four days | Completed deliveries with matched receipts for all three buyers |
+
+Dates are calculated at setup in Asia/Kolkata and printed with pool identifiers.
+The first run already includes Ananya's request: use AI comparison for the demo,
+then clear the existing three-buyer run. Submitting again after it is locked
+creates a separate run. `make dev` keeps the basic seed and existing data; it does
+not inject walkthrough purchases into a working database.
+
 Select a demo account and click Sign in. Development password: **PayPool-demo-2026!**.
 These accounts are refused when demo mode is disabled.
 
