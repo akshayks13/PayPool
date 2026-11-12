@@ -102,9 +102,10 @@ to try the hosted app. Use the demo accounts above, or create a retailer account
 2. As the supplier, open **Shared orders** and optimize the labelled three-shop
    example into a final quote. Existing requests are already seeded; do not add duplicates.
 3. Switch to each participating retailer to review and approve their individual quote.
-4. Open **My orders**, choose **Pay with PayPal**, and sign in with a **Personal
-   PayPal sandbox account**. Approve the test checkout; PayPal returns to PayPool,
-   where the order should show **AUTHORIZED**.
+4. Open **My orders**, choose the **PayPal** button, and sign in with a **Personal
+   PayPal sandbox account** in the checkout popup. Approve the test checkout; the
+   popup closes and the order updates to **AUTHORIZED** without leaving PayPool.
+   An explicit full-page checkout is available if the popup cannot be used.
 5. Use the driver account to inspect delivery workflows and the administrator
    account to inspect worker health, audit history and payment operations.
 
@@ -163,6 +164,11 @@ Use sandbox merchant/buyer accounts and real verified webhook events. Optional
 PayPal Login is configured separately through `PAYPAL_LOGIN_ENABLED` and a
 registered callback. This build supports one configured merchant, not a pooled
 wallet, escrow or automatic multi-merchant payout.
+
+The PayPal JavaScript SDK renders the popup checkout button, using only the
+public client ID. Order creation and authorization stay on the server, with
+`intent=authorize` matching the approved allocation. Cancellation keeps the order
+retryable; SDK loading failures offer an explicit full-page fallback.
 
 The integration uses PayPal OAuth 2.0 for server authentication, Orders API v2
 for checkout and authorization, Payments API v2 for capture, void and refund,

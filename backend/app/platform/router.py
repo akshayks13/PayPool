@@ -63,6 +63,10 @@ def config(request: Request):
         "demo_mode": request.app.state.demo,
         "registration_enabled": request.app.state.demo,
         "payment_provider": request.app.state.payments.mode,
+        # Public SDK identifier only. OAuth secrets remain server-side.
+        "paypal_client_id": request.app.state.payments.client_id
+        if request.app.state.payments.mode == "paypal_sandbox"
+        else None,
         "paypal_login_enabled": bool(os.getenv("PAYPAL_LOGIN_ENABLED") == "true"),
         "accounts": [
             {"id": a[0], "email": a[1], "name": a[2], "roles": a[3]} for a in ACCOUNTS

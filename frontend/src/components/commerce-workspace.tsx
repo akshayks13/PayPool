@@ -33,6 +33,7 @@ import {
   SellerReviewQueue,
 } from "@/components/business-profile";
 import { ImageUpload } from "@/components/image-upload";
+import { PayPalCheckout } from "@/components/paypal-checkout";
 
 type Act = (
   path: string,
@@ -1320,32 +1321,27 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
                   Confirm received goods & release payment
                 </button>
               )}
-              {role === "RETAILER" && o.payment_status === "NOT_STARTED" && (
-                <button
-                  className="btn-primary"
-                  disabled={busy}
-                  onClick={async () => {
-                    try {
-                      const result = (await act(
-                        `/api/v1/orders/${o.id}/checkout`,
-                      )) as Order;
-                      if (result.approval_url)
-                        window.location.assign(result.approval_url);
-                    } catch {}
-                  }}
-                >
-                  {data.payment_provider === "demo"
-                    ? "Create simulated checkout"
-                    : "Continue to PayPal sandbox"}
-                </button>
-              )}
-              {role === "RETAILER" && o.payment_status === "CREATED" && (
-                <>
-                  {o.approval_url && (
-                    <a className="btn-primary" href={o.approval_url}>
-                      Open PayPal approval
-                    </a>
-                  )}
+              {role === "RETAILER" &&
+                data.payment_provider === "paypal_sandbox" &&
+                ["NOT_STARTED", "CREATED"].includes(o.payment_status) && (
+                  <PayPalCheckout order={o} busy={busy} act={act} />
+                )}
+              {role === "RETAILER" &&
+                data.payment_provider === "demo" &&
+                o.payment_status === "NOT_STARTED" && (
+                  <button
+                    className="btn-primary"
+                    disabled={busy}
+                    onClick={() =>
+                      act(`/api/v1/orders/${o.id}/checkout`).catch(() => {})
+                    }
+                  >
+                    Create simulated checkout
+                  </button>
+                )}
+              {role === "RETAILER" &&
+                data.payment_provider === "demo" &&
+                o.payment_status === "CREATED" && (
                   <button
                     className="btn-secondary"
                     disabled={busy}
@@ -1353,12 +1349,9 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
                       act(`/api/v1/orders/${o.id}/authorize`).catch(() => {})
                     }
                   >
-                    {data.payment_provider === "demo"
-                      ? "Simulate buyer authorization"
-                      : "Confirm PayPal authorization"}
+                    Simulate buyer authorization
                   </button>
-                </>
-              )}
+                )}
               {o.payment_status === "AUTHORIZED" && (
                 <p className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
                   <ShieldCheck size={16} />

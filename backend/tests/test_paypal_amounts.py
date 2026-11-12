@@ -1,10 +1,24 @@
 """Regression coverage for genuine PayPal responses with optional breakdowns."""
 
 import pytest
+from fastapi.testclient import TestClient
+from test_commerce import app as app
 
 from app.platform import service
 from app.platform.payment_execution import DetachedWrites
 from app.platform.payments import PaymentError, Payments, amount_matches
+
+
+def test_sdk_config_exposes_public_id_and_never_secret(app, monkeypatch):
+    provider = app.state.payments
+    monkeypatch.setattr(provider, "mode", "paypal_sandbox")
+    monkeypatch.setattr(provider, "client_id", "public-sdk-id")
+    monkeypatch.setattr(provider, "secret", "private-oauth-secret")
+    response = TestClient(app).get("/api/v1/config")
+    assert response.json()["paypal_client_id"] == "public-sdk-id"
+    assert "private-oauth-secret" not in response.text
+    monkeypatch.setattr(provider, "mode", "demo")
+    assert TestClient(app).get("/api/v1/config").json()["paypal_client_id"] is None
 
 
 @pytest.mark.parametrize(
