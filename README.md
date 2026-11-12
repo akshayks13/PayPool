@@ -93,6 +93,36 @@ include a three-shop group ready to optimize and a two-shop cleared quote.
 Fresh examples are prepared daily without fabricating payments or deliveries.
 Render may take about a minute to wake after inactivity.
 
+## Judge walkthrough and PayPal testing
+
+Open **https://paypool-ai.vercel.app**. No installation or API keys are needed
+to try the hosted app. Use the demo accounts above, or create a retailer account.
+
+1. As a retailer, explore **Buy with PayPool**, supplier products and shared buying groups.
+2. As the supplier, open **Shared orders** and optimize the labelled three-shop
+   example into a final quote. Existing requests are already seeded; do not add duplicates.
+3. Switch to each participating retailer to review and approve their individual quote.
+4. Open **My orders**, choose **Pay with PayPal**, and sign in with a **Personal
+   PayPal sandbox account**. Approve the test checkout; PayPal returns to PayPool,
+   where the order should show **AUTHORIZED**.
+5. Use the driver account to inspect delivery workflows and the administrator
+   account to inspect worker health, audit history and payment operations.
+
+**The PayPool demo login and PayPal sandbox login are separate accounts.**
+Use the Personal sandbox buyer credentials supplied privately in the Devpost
+testing instructions, or your own Personal sandbox account. Do not use a real
+PayPal account or the receiving Business sandbox account to approve its own purchase.
+Sandbox credentials and API secrets are not published in this repository.
+
+Authorization reserves the approved test amount. Capture is a separate step
+after the required delivery checks; an authorized order is not yet captured.
+The hosted checkout, buyer approval, $49 authorization and signed webhook have
+been verified. Capture after delivery remains unverified end to end.
+
+The hosted dataset is shared, so examples may change as other testers use them.
+For the four repeatable local scenarios, use `make demo`: it explicitly forces
+simulated payments, even when sandbox credentials are configured locally.
+
 ## What works
 
 - Business/contact/delivery profiles, notification preferences and protected address changes.
@@ -105,7 +135,7 @@ Render may take about a minute to wake after inactivity.
 - Assigned driver routes, snapshotted delivery contacts, photo evidence, exceptions/redelivery and buyer confirmation.
 - Reconciled printable receipts, notifications, audit search, worker health, ledger and job recovery.
 
-## Optional connections
+## AI and PayPal integration
 
 Server-only settings live in ignored `backend/.env`; start from `.env.example`
 only for a new checkout, preserving any existing key file.
@@ -124,6 +154,18 @@ Use sandbox merchant/buyer accounts and real verified webhook events. Optional
 PayPal Login is configured separately through `PAYPAL_LOGIN_ENABLED` and a
 registered callback. This build supports one configured merchant, not a pooled
 wallet, escrow or automatic multi-merchant payout.
+
+The integration uses PayPal OAuth 2.0 for server authentication, Orders API v2
+for checkout and authorization, Payments API v2 for capture, void and refund,
+and the Webhooks API for registration and signature verification before
+reconciling provider state. Gemini interprets purchasing requirements and
+explains recommendations; backend rules validate prices, quantities and approvals.
+
+For a separate sandbox deployment, register its HTTPS webhook listener at
+`/api/v1/webhooks/paypal` and save the resulting ID as `PAYPAL_WEBHOOK_ID`.
+Set `PAYPOOL_FRONTEND_URL` to your frontend origin so checkout returns and origin
+checks match. `PAYPAL_SELLER_ID` is the connected distributor's internal PayPool
+ID (`seller-demo` for the seeded distributor). See [deployment instructions](docs/deployment.md).
 
 Optional PostgreSQL/PostGIS, Redis/Celery and Elasticsearch configuration is in
 `backend/.env.example` and `compose.yaml`. Their local fallback is sufficient for
