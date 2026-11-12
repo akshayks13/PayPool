@@ -115,8 +115,9 @@ only for a new checkout, preserving any existing key file.
 is explicitly labelled offline interpretation. The team's local key is not in Git.
 
 **PayPal:** the hosted deployment uses PayPal Sandbox; local walkthroughs use
-simulation. Sandbox OAuth and real checkout creation have been verified. Buyer
-authorization and capture still require an approved Personal sandbox checkout.
+simulation. Sandbox OAuth, real checkout creation, Personal buyer approval,
+$49 authorization and a signature-verified webhook have been verified on the
+hosted app. Capture after delivery has not yet been verified end to end.
 To configure your own deployment, set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`,
 `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` and `PAYPAL_SELLER_ID`.
 Use sandbox merchant/buyer accounts and real verified webhook events. Optional

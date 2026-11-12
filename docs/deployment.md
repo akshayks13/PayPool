@@ -21,10 +21,10 @@ credentials in Render's secret environment variables.
 - Demo account selection and retailer self-signup are available on `/login`.
   See README for demo credentials. Self-signup is restricted to sandbox demo mode.
 
-Sandbox OAuth and real checkout creation have been verified. Personal sandbox
-buyer approval is still needed to verify authorization, capture and financial
-webhook handling end to end. A sandbox Business merchant cannot approve its
-own purchase as the buyer.
+Sandbox OAuth, checkout creation, Personal buyer approval, a $49 authorization
+and a signature-verified webhook have been verified on the hosted app. Capture
+after delivery remains unverified end to end. A sandbox Business merchant cannot
+approve its own purchase as the buyer.
 
 The instructions below describe setting up a separate deployment.
 
