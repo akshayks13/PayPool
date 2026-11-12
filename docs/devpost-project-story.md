@@ -40,9 +40,9 @@ We built a connected Next.js and React frontend with TypeScript and Tailwind CSS
 
 Gemini interprets purchasing requests and explains validated supplier options. Buyer and supplier policy agents produce bounded recommendations, while deterministic services and OR-Tools handle allocation and routing constraints. The model cannot approve a purchase, override a budget or execute an unrestricted payment.
 
-Our payment layer implements PayPal REST workflows for server-side OAuth, Orders, authorization, capture, void, refund and webhook verification. Payment operation intents are persisted before provider calls so uncertain results can be reconciled safely. For the hackathon demonstration, payment execution runs in clearly labeled simulation mode.
+PayPool uses PayPal's JavaScript SDK to open checkout in a popup while the purchasing workspace stays visible. Each buyer signs in with a Personal sandbox account and approves their own exact purchase. The server creates and authorizes the order using PayPal REST APIs, checking the currency and total against the approved allocation. Payment operation intents are persisted before provider calls so uncertain results can be reconciled safely. Capture is linked to confirmed delivery; void, refund and webhook verification workflows support financial recovery.
 
-Transactional records, immutable agreement snapshots and a durable event outbox support scheduled work, notifications, receipts and recovery. We also built business profiles, supplier application reviews, catalog imports, product photos and authenticated delivery evidence so the purchasing journey extends beyond a checkout screen.
+The public app runs on Vercel, with the FastAPI backend and SQL worker on Render and persistent PostgreSQL storage on Neon. Both application deployments connect to the GitHub main branch. Transactional records, immutable agreement snapshots and a durable event outbox support scheduled work, notifications, receipts and recovery. We also built business profiles, supplier application reviews, catalog imports, product photos and authenticated delivery evidence so the purchasing journey extends beyond a checkout screen.
 
 ### Challenges we faced
 
@@ -60,6 +60,9 @@ Transactional records, immutable agreement snapshots and a durable event outbox 
 - Handling a three-buyer purchase and participant withdrawal with revised terms, reconciled commitments and fresh consent.
 - Bringing retailers, suppliers, drivers and administrators into role-based workspaces with onboarding, business profiles, catalog management and delivery evidence.
 - Verifying critical domain rules and user journeys through backend tests, browser checks and a portable Postman walkthrough.
+- Completing real PayPal Sandbox popup login, buyer approval and $49 authorization locally and on the hosted app, plus signature-verified webhook handling on the hosted backend.
+
+**Payment validation:** the hosted app and `make sandbox` use genuine PayPal Sandbox, with no real money moving. Popup approval and authorization are verified; capture after delivery and the subsequent real-provider void/refund lifecycle remain to be verified end to end. `make demo` remains an explicitly labelled offline payment simulator for reproducible delivery and recovery walkthroughs.
 
 ### What we learned
 
@@ -81,18 +84,27 @@ Add these as individual Devpost tags:
 - SQLAlchemy
 - Alembic
 - SQLite
+- PostgreSQL
 - Next.js
 - React
 - TypeScript
 - Tailwind CSS
 - TanStack Query
 - Google Gemini
-- Google GenAI SDK
 - Google OR-Tools
 - PayPal REST API
+- PayPal JavaScript SDK
+- Vercel
+- Render
 - Leaflet
 - Pillow
 - Pytest
 - Playwright
 - Postman
 - Newman
+
+## Project links
+
+- [Live application](https://paypool-ai.vercel.app)
+- [Public source repository](https://github.com/akshayks13/PayPool)
+- [Payment flow and verification](https://github.com/akshayks13/PayPool/blob/main/docs/payments.md)
