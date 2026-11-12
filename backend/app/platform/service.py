@@ -454,12 +454,11 @@ def payment_action(tx, user, order, payments, action, settling_operation=False):
                     "Provider capture reference is missing; reconcile before continuing"
                 )
             if payments.mode != "demo":
-                from app.platform.payments import amount
+                from app.platform.payments import amount_matches
 
-                if remote.get("amount") != {
-                    "currency_code": order["currency"],
-                    "value": amount(order["total_minor"]),
-                }:
+                if not amount_matches(
+                    remote.get("amount"), order["currency"], order["total_minor"]
+                ):
                     raise PaymentError(
                         "Capture amount does not match the approved allocation"
                     )
@@ -508,22 +507,18 @@ def reconcile(tx, order, payments):
     ):
         raise PaymentError("Remote order identity does not match this allocation")
     unit = remote["purchase_units"][0]
-    from app.platform.payments import amount
+    from app.platform.payments import amount_matches
 
-    if unit["amount"] != {
-        "currency_code": order["currency"],
-        "value": amount(order["total_minor"]),
-    }:
+    if not amount_matches(unit["amount"], order["currency"], order["total_minor"]):
         raise PaymentError("Remote order does not match this allocation")
     details = unit.get("payments", {})
     captures = details.get("captures", [])
     auths = details.get("authorizations", [])
     if not captures and auths:
         auth = payments.call("GET", "/v2/payments/authorizations/" + auths[0]["id"])
-        if auth.get("status") in {"CREATED", "AUTHORIZED"} and auth.get("amount") != {
-            "currency_code": order["currency"],
-            "value": amount(order["total_minor"]),
-        }:
+        if auth.get("status") in {"CREATED", "AUTHORIZED"} and not amount_matches(
+            auth.get("amount"), order["currency"], order["total_minor"]
+        ):
             raise PaymentError(
                 "Authorized amount does not match the buyer-approved total"
             )
@@ -555,10 +550,9 @@ def reconcile(tx, order, payments):
         capture = confirmed_captures[0] if confirmed_captures else captures[0]
         if not isinstance(capture.get("id"), str) or not capture["id"]:
             raise PaymentError("Capture reference is missing")
-        if capture.get("amount") != {
-            "currency_code": order["currency"],
-            "value": amount(order["total_minor"]),
-        }:
+        if not amount_matches(
+            capture.get("amount"), order["currency"], order["total_minor"]
+        ):
             raise PaymentError(
                 "Captured amount differs from the approved full-order total"
             )

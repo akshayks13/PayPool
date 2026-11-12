@@ -20,6 +20,15 @@ def amount(value):
     return f"{value // 100}.{value % 100:02d}"
 
 
+def amount_matches(remote, currency, minor):
+    """Validate the agreed total while allowing PayPal's optional breakdown."""
+    return (
+        isinstance(remote, dict)
+        and remote.get("currency_code") == currency
+        and remote.get("value") == amount(minor)
+    )
+
+
 class Payments:
     def __init__(self, demo=True):
         self.mode = os.getenv(
@@ -141,10 +150,9 @@ class Payments:
         if remote.get("status") not in {"APPROVED", "COMPLETED"}:
             raise PaymentError("The buyer has not approved the PayPal order")
         units = remote.get("purchase_units", [])
-        if len(units) != 1 or units[0].get("amount") != {
-            "currency_code": order["currency"],
-            "value": amount(order["total_minor"]),
-        }:
+        if len(units) != 1 or not amount_matches(
+            units[0].get("amount"), order["currency"], order["total_minor"]
+        ):
             raise PaymentError(
                 "PayPal order amount does not match the approved allocation"
             )
