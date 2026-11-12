@@ -36,4 +36,8 @@ export PAYPOOL_FRONTEND_URL=http://localhost:3000
 export API_BASE_URL=http://127.0.0.1:8000
 export PAYPAL_LOGIN_ENABLED=false
 export ACP_ENABLED=false
+echo "Preparing fictional buying, recovery, delivery and receipt scenarios..."
+(cd backend && .venv/bin/python -m app.platform.demo_scenarios)
+echo "Demo scenes use the next four delivery dates printed above."
+echo "The first run already has all three requests: compare with AI, then clear it; do not submit a duplicate request."
 exec bash scripts/dev.sh
