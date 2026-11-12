@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc"><title id="title">PayPool: shared buying power, individual buyer protection</title><desc id="desc">An illustrative three-shop purchase produces individual 48 dollar orders. If a buyer leaves, old commitments are reconciled and two 49 dollar replacement quotes require fresh approval. A 1.60 dollar per kilogram hard ceiling blocks the revised purchase.</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9" fill="#52647c"/></marker></defs><rect width="1800" height="1200" fill="#f5f8fc"/><style>text{font-family:Inter,Arial,sans-serif;fill:#16263e}.title{font-size:44px;font-weight:750}.sub{font-size:22px;fill:#586a82}.label{font-size:16px;font-weight:750;letter-spacing:1.8px}.head{font-size:27px;font-weight:750}.body{font-size:22px;fill:#465b73}.number{font-size:56px;font-weight:750}.small{font-size:18px;fill:#586a82}</style>
+<text x="64" y="74" class="title" text-anchor="start">PayPool</text>
+<text x="64" y="119" class="sub" text-anchor="start">Shared buying power. Protection for every buyer.</text>
+<text x="1736" y="76" class="label" text-anchor="end" style="fill:#087e79">THE PRODUCT STORY</text>
+<text x="64" y="171" class="small" text-anchor="start">ILLUSTRATIVE PURCHASE · FICTIONAL DEMO PRICES IN USD</text>
+<rect x="64" y="205" width="500" height="300" rx="22" fill="#fff" stroke="#dce5ef" stroke-width="1.5"/>
+<rect x="650" y="205" width="500" height="300" rx="22" fill="#fff" stroke="#dce5ef" stroke-width="1.5"/>
+<rect x="1236" y="205" width="500" height="300" rx="22" fill="#fff" stroke="#dce5ef" stroke-width="1.5"/>
+<text x="92" y="246" class="label" text-anchor="start" style="fill:#087e79">01  COMBINE COMPATIBLE DEMAND</text>
+<g transform="translate(127 272)" fill="none" stroke="#087e79" stroke-width="3"><path d="M0 20L10 0H46L56 20M0 20H56V29Q49 39 42 29Q35 39 28 29Q21 39 14 29Q7 39 0 29ZM5 37V66H51V37M23 66V46H38V66"/></g>
+<text x="155" y="370" class="body" text-anchor="middle">30 kg</text>
+<g transform="translate(287 272)" fill="none" stroke="#087e79" stroke-width="3"><path d="M0 20L10 0H46L56 20M0 20H56V29Q49 39 42 29Q35 39 28 29Q21 39 14 29Q7 39 0 29ZM5 37V66H51V37M23 66V46H38V66"/></g>
+<text x="315" y="370" class="body" text-anchor="middle">30 kg</text>
+<g transform="translate(447 272)" fill="none" stroke="#087e79" stroke-width="3"><path d="M0 20L10 0H46L56 20M0 20H56V29Q49 39 42 29Q35 39 28 29Q21 39 14 29Q7 39 0 29ZM5 37V66H51V37M23 66V46H38V66"/></g>
+<text x="475" y="370" class="body" text-anchor="middle">30 kg</text>
+<text x="314" y="450" class="head" text-anchor="middle">90 kg together</text>
+<text x="314" y="482" class="small" text-anchor="middle">Supplier tier + shared delivery</text>
+<polyline points="564,355 650,355" fill="none" stroke="#52647c" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="678" y="246" class="label" text-anchor="start" style="fill:#1266c9">02  LOCK EACH BUYER’S PRICE</text>
+<text x="900" y="326" class="number" text-anchor="middle" style="fill:#1266c9">$48</text>
+<text x="900" y="366" class="body" text-anchor="middle">per shop</text>
+<text x="900" y="418" class="head" text-anchor="middle">$45 goods + $3 freight</text>
+<text x="900" y="458" class="small" text-anchor="middle">$1.60/kg delivered ≤ $1.70/kg ceiling</text>
+<polyline points="1150,355 1236,355" fill="none" stroke="#52647c" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1264" y="246" class="label" text-anchor="start" style="fill:#6353b7">03  EACH BUYER AUTHORIZES</text>
+<circle cx="1279" cy="302" r="11" fill="#e9e5fa"/>
+<text x="1304" y="310" class="body" text-anchor="start">Review the exact allocation</text>
+<circle cx="1279" cy="350" r="11" fill="#e9e5fa"/>
+<text x="1304" y="358" class="body" text-anchor="start">Approve individually</text>
+<circle cx="1279" cy="398" r="11" fill="#e9e5fa"/>
+<text x="1304" y="406" class="body" text-anchor="start">Authorize a separate payment</text>
+<text x="1486" y="468" class="head" text-anchor="middle" style="fill:#003087">PayPal payment workflow</text>
+<polyline points="1486,505 1486,566 424,566 424,625" fill="none" stroke="#52647c" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1486,505 1486,625" fill="none" stroke="#52647c" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="314.0" y="585" width="220" height="24" fill="#f5f8fc"/>
+<text x="424" y="603" class="label" text-anchor="middle" style="fill:#b46b13">IF A BUYER WITHDRAWS</text>
+<rect x="1361.0" y="585" width="250" height="24" fill="#f5f8fc"/>
+<text x="1486" y="603" class="label" text-anchor="middle" style="fill:#087e79">WHEN THE ORDER PROCEEDS</text>
+<rect x="64" y="632" width="1040" height="382" rx="22" fill="#fffaf0" stroke="#eedbb4" stroke-width="1.5"/>
+<rect x="1172" y="632" width="564" height="382" rx="22" fill="#ecf8f5" stroke="#bde1d7" stroke-width="1.5"/>
+<text x="96" y="682" class="head" text-anchor="start">Recover the agreement. Keep the buyer in control.</text>
+<text x="96" y="731" class="body" text-anchor="start">Release or reconcile the old commitments. Recalculate the remaining 60 kg.</text>
+<rect x="96" y="764" width="340" height="130" rx="22" fill="#fff" stroke="#eedbb4" stroke-width="1.5"/>
+<text x="266" y="819" class="head" text-anchor="middle" style="fill:#a65e12">$49 per shop</text>
+<text x="266" y="860" class="body" text-anchor="middle">$45 goods + $4 freight</text>
+<polyline points="436,827 478,827" fill="none" stroke="#52647c" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="506" y="797" class="head" text-anchor="start">Within the $1.70/kg ceiling?</text>
+<text x="506" y="836" class="body" text-anchor="start">Yes → ask each buyer to approve again.</text>
+<text x="506" y="877" class="body" text-anchor="start" style="fill:#a33b3b">At a $1.60/kg ceiling → stop this plan.</text>
+<text x="96" y="961" class="head" text-anchor="start" style="fill:#a65e12">Changed terms never inherit an earlier approval.</text>
+<text x="1204" y="682" class="head" text-anchor="start" style="fill:#087e79">Fulfill and reconcile</text>
+<circle cx="1221" cy="737" r="12" fill="#087e79"/>
+<text x="1250" y="746" class="head" text-anchor="start">Dispatch the delivery</text>
+<text x="1250" y="778" class="small" text-anchor="start">Assigned driver and route</text>
+<circle cx="1221" cy="835" r="12" fill="#087e79"/>
+<text x="1250" y="844" class="head" text-anchor="start">Record fulfillment evidence</text>
+<text x="1250" y="876" class="small" text-anchor="start">Delivered quantities and exceptions</text>
+<circle cx="1221" cy="933" r="12" fill="#087e79"/>
+<text x="1250" y="942" class="head" text-anchor="start">Issue a reconciled receipt</text>
+<text x="1250" y="974" class="small" text-anchor="start">Agreement, delivery and payment records</text>
+<rect x="64" y="1054" width="1672" height="98" rx="22" fill="#16263e" stroke="#16263e" stroke-width="1.5"/>
+<text x="900" y="1095" class="head" text-anchor="middle" style="fill:#fff">AI proposes. Rules validate. Each buyer decides.</text>
+<text x="900" y="1128" class="body" text-anchor="middle" style="fill:#c8e5ed">Individual budgets · explicit consent · separate payments · recoverable agreements</text>
+</svg>

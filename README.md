@@ -6,6 +6,8 @@
 
 # PayPool
 
+[Source repository](https://github.com/akshayks13/PayPool)
+
 Independent shops combine wholesale demand into a viable supplier delivery run.
 Each buyer keeps a hard delivered-price limit, approves an exact allocation and
 authorizes their own purchase. If someone leaves, PayPool releases old commitments
@@ -35,6 +37,8 @@ the platform coordinates the agreement and its lifecycle.
 [Architecture details](docs/architecture.md)
 
 ## Start the app
+
+For a public demo, see [free deployment on Vercel, Render and Neon](docs/deployment.md).
 
 Requires **Python 3.12+ and Node.js 22+**. From this directory:
 
