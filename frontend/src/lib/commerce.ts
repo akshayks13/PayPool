@@ -83,6 +83,7 @@ export type Allocation = {
   substituted: boolean;
 };
 export type Pool = {
+  example_label?: string;
   id: string;
   seller_id: string;
   zone_id: string;

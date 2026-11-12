@@ -23,6 +23,18 @@ def public_user(user):
     }
 
 
+def set_session_cookie(response, token):
+    response.set_cookie(
+        "paypool_session",
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=8 * 3600,
+        secure=os.getenv("PAYPOOL_COOKIE_SECURE", "false").lower() == "true",
+        path="/",
+    )
+
+
 def store_for(request: Request):
     return request.app.state.store
 

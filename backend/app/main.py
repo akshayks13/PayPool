@@ -17,6 +17,7 @@ from app.platform.business import router as business_router
 from app.platform.features_router import router as features_router
 from app.platform.media import router as media_router
 from app.platform.payments import Payments
+from app.platform.registration import router as registration_router
 from app.platform.router import router as platform_router
 from app.platform.seed import seed
 from app.platform.store import Store
@@ -54,6 +55,7 @@ def create_app(database_url: str | None = None, demo: bool | None = None) -> Fas
         ],
     )
     app.include_router(platform_router)
+    app.include_router(registration_router)
     app.include_router(business_router)
     app.include_router(media_router)
     # The original fixture endpoints accept caller-supplied identities and

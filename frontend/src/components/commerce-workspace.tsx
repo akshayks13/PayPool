@@ -903,6 +903,11 @@ function Pools({
           <section className="card" key={p.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
+                {p.example_label && (
+                  <p className="mb-2 text-sm font-semibold text-teal-700">
+                    {p.example_label}
+                  </p>
+                )}
                 <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
                   Delivery run · version {p.version}
                 </p>
@@ -1245,7 +1250,8 @@ function Orders({ data, act, busy, role }: Common & { role: Role }) {
                   <div className="mt-2 text-sm">
                     <b>
                       Deliver to{" "}
-                      {o.buyer_name ?? data.people.find((p) => p.id === o.buyer_id)?.name ??
+                      {o.buyer_name ??
+                        data.people.find((p) => p.id === o.buyer_id)?.name ??
                         o.buyer_id}
                     </b>
                     {o.delivery_contact && (
@@ -1696,7 +1702,11 @@ function ProductForm({
           ["description", "Description", product?.description ?? ""],
           ["category", "Category", product?.category ?? "General"],
           ["pack", "Pack / specification", product?.pack ?? ""],
-          ["image", "Image URL (HTTPS or uploaded image)", product?.image_url ?? ""],
+          [
+            "image",
+            "Image URL (HTTPS or uploaded image)",
+            product?.image_url ?? "",
+          ],
           [
             "public_url",
             "Public product URL (HTTPS, optional)",

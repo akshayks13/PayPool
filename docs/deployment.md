@@ -4,6 +4,30 @@ The public demo URL is the Vercel frontend URL. The frontend proxies `/api/*` to
 Render so login cookies remain on the frontend origin. Keep API keys and database
 credentials in Render's secret environment variables.
 
+## Current hosted deployment
+
+- Frontend: https://paypool-gamma.vercel.app
+- API: https://paypool-api.onrender.com
+- Vercel and Render deploy from `akshayks13/PayPool`, branch `main`.
+- Render service belongs to the **PayPool / Production** project.
+- Neon connects to Render through `DATABASE_URL`. It stores data; schema
+  migrations are supplied by the Git-deployed backend.
+- The hosted service uses `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox` with private
+  PayPal credentials and a registered webhook ID. `PAYPOOL_PREPARE_DEMO=false`
+  prevents inserting simulated financial walkthroughs.
+- `PAYPOOL_PREPARE_JUDGES=true` prepares labelled future buying groups daily:
+  three shops ready to optimize and a two-shop cleared quote. It preserves
+  existing orders and creates no payment or delivery evidence.
+- Demo account selection and retailer self-signup are available on `/login`.
+  See README for demo credentials. Self-signup is restricted to sandbox demo mode.
+
+Sandbox OAuth and real checkout creation have been verified. Personal sandbox
+buyer approval is still needed to verify authorization, capture and financial
+webhook handling end to end. A sandbox Business merchant cannot approve its
+own purchase as the buyer.
+
+The instructions below describe setting up a separate deployment.
+
 ## 1. Persistent PostgreSQL on Neon
 
 Create a **Free** Neon project. Copy its PostgreSQL connection string, keeping
