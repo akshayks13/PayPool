@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSession } from "@/components/providers";
 import { request } from "@/lib/http";
 type Config = {
+  registration_enabled?: boolean;
   demo_mode: boolean;
   paypal_login_enabled: boolean;
   demo_password: string | null;
@@ -141,6 +142,17 @@ export default function LoginPage() {
               {busy ? "Signing in…" : "Sign in"}
             </button>
           </form>
+          {config?.registration_enabled && (
+            <p className="mt-5 text-center text-sm text-slate-600">
+              Want your own workspace?{" "}
+              <Link
+                href="/signup"
+                className="font-semibold text-blue-700 underline"
+              >
+                Create an account
+              </Link>
+            </p>
+          )}
           {config?.paypal_login_enabled && (
             <a
               href="/api/v1/auth/paypal/start"

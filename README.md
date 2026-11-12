@@ -6,7 +6,7 @@
 
 # PayPool
 
-[Source repository](https://github.com/akshayks13/PayPool)
+[Live demo](https://paypool-gamma.vercel.app) · [Source repository](https://github.com/akshayks13/PayPool)
 
 Independent shops combine wholesale demand into a viable supplier delivery run.
 Each buyer keeps a hard delivered-price limit, approves an exact allocation and
@@ -83,8 +83,15 @@ These accounts are refused when demo mode is disabled.
 | admin@paypool.demo | Operations administrator |
 
 Use separate browser profiles for multiple roles. Businesses, USD prices and
-coordinates are fictional demo fixtures. Payments are explicitly simulated;
-no real money moves in demo mode.
+coordinates are fictional demo fixtures. Local walkthroughs simulate payments;
+the hosted demo uses PayPal Sandbox. Neither moves real money.
+
+On the hosted demo, judges can select these accounts or choose **Create an
+account** on the sign-in page for a new retailer workspace. Supplier access
+requires an application and administrator approval. Labelled judge examples
+include a three-shop group ready to optimize and a two-shop cleared quote.
+Fresh examples are prepared daily without fabricating payments or deliveries.
+Render may take about a minute to wake after inactivity.
 
 ## What works
 
@@ -107,9 +114,10 @@ only for a new checkout, preserving any existing key file.
 `PAYPOOL_GEMINI_MODEL` (default `gemini-2.5-flash`). Without a key, the local default
 is explicitly labelled offline interpretation. The team's local key is not in Git.
 
-**PayPal:** current payments are simulated at the team's request. The sandbox
-Orders/authorization/capture/void/refund/webhook adapters exist but need actual
-account verification. When access is available, set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`,
+**PayPal:** the hosted deployment uses PayPal Sandbox; local walkthroughs use
+simulation. Sandbox OAuth and real checkout creation have been verified. Buyer
+authorization and capture still require an approved Personal sandbox checkout.
+To configure your own deployment, set `PAYPOOL_PAYMENT_PROVIDER=paypal_sandbox`,
 `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID` and `PAYPAL_SELLER_ID`.
 Use sandbox merchant/buyer accounts and real verified webhook events. Optional
 PayPal Login is configured separately through `PAYPAL_LOGIN_ENABLED` and a

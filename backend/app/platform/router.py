@@ -34,6 +34,9 @@ from app.platform.auth import (
     session_payload,
     store_for,
 )
+from app.platform.auth import (
+    set_session_cookie as cookie,
+)
 from app.platform.models import (
     Delivery,
     Discovery,
@@ -54,22 +57,11 @@ from app.platform.store import now
 router = APIRouter(prefix="/api/v1")
 
 
-def cookie(response, token):
-    response.set_cookie(
-        "paypool_session",
-        token,
-        httponly=True,
-        samesite="lax",
-        max_age=8 * 3600,
-        secure=os.getenv("PAYPOOL_COOKIE_SECURE", "false").lower() == "true",
-        path="/",
-    )
-
-
 @router.get("/config")
 def config(request: Request):
     return {
         "demo_mode": request.app.state.demo,
+        "registration_enabled": request.app.state.demo,
         "payment_provider": request.app.state.payments.mode,
         "paypal_login_enabled": bool(os.getenv("PAYPAL_LOGIN_ENABLED") == "true"),
         "accounts": [

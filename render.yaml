@@ -35,5 +35,7 @@ services:
         value: "false"
       - key: PAYPOOL_PREPARE_DEMO
         value: "true"
+      - key: PAYPOOL_PREPARE_JUDGES
+        value: "true"
       - key: PYTHONUNBUFFERED
         value: "1"

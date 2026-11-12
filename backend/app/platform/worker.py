@@ -209,6 +209,13 @@ def tick(store=None, payments=None, limit=100):
     payments = payments or Payments(
         os.getenv("PAYPOOL_DEMO_MODE", "true").lower() == "true"
     )
+    if (
+        os.getenv("PAYPOOL_DEMO_MODE", "false").lower() == "true"
+        and os.getenv("PAYPOOL_PREPARE_JUDGES", "false").lower() == "true"
+    ):
+        from app.platform.judge_examples import prepare
+
+        prepare(store)
     result = {
         "scheduled": schedule(store, payments),
         "delivered": 0,
