@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useSession } from "@/components/providers";
@@ -48,8 +49,8 @@ export default function LoginPage() {
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_#dbeafe,_#f8fbff_60%)] px-5 py-12">
       <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-2 lg:items-center">
         <section>
-          <Link href="/" className="text-2xl font-black text-blue-800">
-            paypool<span className="text-blue-400">.</span>
+          <Link href="/" aria-label="PayPool home">
+            <Brand />
           </Link>
           <p className="mt-12 text-sm font-bold uppercase tracking-widest text-blue-600">
             Independent shops. Shared buying power.

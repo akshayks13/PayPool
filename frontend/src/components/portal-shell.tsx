@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { Bell, ChevronDown, Menu, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { useSession } from "@/components/providers";
@@ -52,8 +53,8 @@ export function PortalShell({
         className={`${sidebarOpen ? "block" : "hidden"} fixed inset-y-0 z-30 w-72 bg-ink p-5 text-white lg:static lg:block`}
       >
         <div className="flex items-center justify-between">
-          <Link href={`/${routeRole}`} className="text-xl font-black">
-            paypool
+          <Link href={`/${routeRole}`} aria-label="PayPool workspace">
+            <Brand onDark />
           </Link>
           <button
             className="lg:hidden"

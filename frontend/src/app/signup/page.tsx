@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { useSession } from "@/components/providers";
@@ -35,8 +36,8 @@ export default function SignUp() {
   return (
     <main className="min-h-screen bg-sand px-5 py-12">
       <section className="card mx-auto max-w-lg">
-        <Link href="/" className="text-2xl font-black text-blue-800">
-          paypool.
+        <Link href="/" aria-label="PayPool home">
+          <Brand />
         </Link>
         <h1 className="mt-8 text-3xl font-black">
           Create your buying workspace
