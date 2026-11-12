@@ -6,6 +6,8 @@
 
 # PayPool
 
+[Source repository](https://github.com/akshayks13/PayPool)
+
 Independent shops combine wholesale demand into a viable supplier delivery run.
 Each buyer keeps a hard delivered-price limit, approves an exact allocation and
 authorizes their own purchase. If someone leaves, PayPool releases old commitments
